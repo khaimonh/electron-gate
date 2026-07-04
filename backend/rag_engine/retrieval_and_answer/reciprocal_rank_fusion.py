@@ -5,9 +5,8 @@ def reciprocal_rank_fusion(chunk_lists, k=60, verbose=False):
     if verbose:
         print("Calculating RRF scores...\n")
     
-    # Data structures for RRF calculation
-    rrf_scores = defaultdict(float)  # Will store: {chunk_content: rrf_score}
-    all_unique_chunks = {}  # Will store: {chunk_content: actual_chunk_object}
+    rrf_scores = defaultdict(float)  # {chunk_content: rrf_score}
+    all_unique_chunks = {}  # {chunk_content: actual_chunk_object}
     
     # For verbose output - track chunk IDs
     chunk_id_map = {}
@@ -21,7 +20,6 @@ def reciprocal_rank_fusion(chunk_lists, k=60, verbose=False):
         for position, chunk in enumerate(chunks, 1): 
             chunk_content = chunk.page_content
             
-            # Assign a simple ID if we haven't seen this chunk before
             if chunk_content not in chunk_id_map:
                 chunk_id_map[chunk_content] = f"Chunk_{chunk_counter}"
                 chunk_counter += 1
@@ -30,10 +28,8 @@ def reciprocal_rank_fusion(chunk_lists, k=60, verbose=False):
             
             all_unique_chunks[chunk_content] = chunk
             
-            # Calculate position score: 1/(k + position)
             position_score = 1 / (k + position)
             
-            # Add to RRF score
             rrf_scores[chunk_content] += position_score
             
             if verbose:
@@ -45,8 +41,8 @@ def reciprocal_rank_fusion(chunk_lists, k=60, verbose=False):
     
     sorted_chunks = sorted(
         [(all_unique_chunks[chunk_content], score) for chunk_content, score in rrf_scores.items()],
-        key=lambda x: x[1],  # Sort by RRF score
-        reverse=True  # Highest scores first
+        key=lambda x: x[1],  
+        reverse=True  
     )
     
     if verbose:

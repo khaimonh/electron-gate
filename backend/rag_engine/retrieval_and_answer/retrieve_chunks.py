@@ -10,10 +10,6 @@ def retrieve_chunks(query, vector_store):
     chunks = retriever.invoke(query)
     return chunks
 
-# Pydantic model for structured output
-# class QueryVariations(BaseModel):
-#     queries: List[str]
-    
 def retrieve_chunks_multi(llm, query, vector_store):
     with get_openai_callback() as cb:
 
@@ -26,7 +22,6 @@ def retrieve_chunks_multi(llm, query, vector_store):
         Return 3 alternative queries that rephrase or approach the same question from different but similar angles.
 
         Return only the 3 queries, one per line, with no numbering or extra text."""
-        #TODO: delete last line when using openAI models
 
         response = llm.invoke(prompt)
         text = response.content if hasattr(response, "content") else str(response)
