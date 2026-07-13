@@ -59,7 +59,7 @@ def create_access_token(email: str, user_id: str, role_name: str, expires_delta:
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
 async def create_user(create_user_request: UserCreateRequest, db: db_dependency):
-    user_role = db.query(Role).filter(Role.role_name == "User").first()
+    user_role = db.query(Role).filter(Role.role_name == "Admin").first()
     if not user_role:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User role not found")
 

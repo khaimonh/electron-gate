@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
-from api.deps import bcrypt_context, db_dependency, get_current_user
+from api.deps import bcrypt_context, db_dependency, get_current_user, require_admin
 from api.models import Role, User
 
 router = APIRouter(prefix="/people", tags=["people"])
@@ -47,10 +47,7 @@ class UserUpdate(BaseModel):
     role_name: Optional[str] = None
 
 
-def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
-    if current_user.get("role") != "Admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
-    return current_user
+
 
 
 def role_to_read(role: Role) -> RoleRead:
