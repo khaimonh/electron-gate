@@ -38,3 +38,23 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate user")
 
 user_dependency = Annotated[dict, Depends(get_current_user)]
+
+
+async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    if current_user.get("role") != "Admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user
+
+
+async def require_admin_or_staff(
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    if current_user.get("role") not in ("Admin", "Staff"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin or Staff access required",
+        )
+    return current_user

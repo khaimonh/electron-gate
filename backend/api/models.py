@@ -157,6 +157,7 @@ class Product(Base):
     product_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     description = Column(Text)
+    image_url = Column(Text)
 
     categories = relationship(
         "Category",
@@ -202,6 +203,7 @@ class ProductVariant(Base):
     storage = Column(String(100))
     price = Column(Numeric(12, 2), nullable=False, default=Decimal("0.00"))
     status = Column(String(50), nullable=False, default="active")
+    image_url = Column(Text)
 
     product = relationship("Product", back_populates="variants")
     specs = relationship(
