@@ -34,6 +34,11 @@ app.include_router(product_variants.router)
 app.include_router(product_specs.router)
 app.include_router(variant_specs.router)
 app.include_router(ingestion.router)
+app.include_router(categories.router)
+app.include_router(products.router)
+app.include_router(product_variants.router)
+app.include_router(product_specs.router)
+app.include_router(variant_specs.router)
 
 
 def seed_default_roles() -> None:
