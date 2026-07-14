@@ -5,6 +5,9 @@ from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 from dotenv import load_dotenv
+from supabase import create_client
+from langchain_openai import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings
 import os 
 from api.database import SessionLocal
 
@@ -13,6 +16,27 @@ load_dotenv()
 SECRET_KEY = os.getenv("AUTH_SECRET_KEY")
 ALGORITHM = os.getenv("AUTH_ALGORITHM")
 
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+SUPABASE_RAW_DATA_BUCKET = os.getenv("SUPABASE_RAW_DATA_BUCKET")
+
+def create_supabase_client():
+    client = create_client(
+        supabase_key=SUPABASE_SERVICE_ROLE_KEY,
+        supabase_url=SUPABASE_URL
+    )
+    return client
+
+def get_llm() -> ChatOpenAI:
+    return ChatOpenAI(
+        model="gpt-4o-mini",
+        temperature=0
+    )
+
+def get_embedding() ->OpenAIEmbeddings:
+    return OpenAIEmbeddings(model="text-embedding-3-small")
+ 
 def get_db():
     db = SessionLocal()
     try:
