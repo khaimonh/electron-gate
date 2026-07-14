@@ -20,8 +20,11 @@ def partition_document(file_path: str):
         extract_image_block_types=["Image"], 
         extract_image_block_to_payload=True 
     )
+
+    page_numbers = {e.metadata.page_number for e in elements if e.metadata.page_number}
     
     print(f"Extracted {len(elements)} elements")
+    print(f"Extracted {len(page_numbers)} pages")
     return elements
 
 

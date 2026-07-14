@@ -15,15 +15,15 @@ def upload_vector_store(docs, embeddings, client):
         docs,
         embeddings,
         client=client,
-        table_name="document_chunks_test",
-        query_name="match_document_chunks_test"
+        table_name="document_chunks",
+        query_name="match_document_chunks"
     )
 
 def get_vector_store(embeddings, client):
     vector_store = SupabaseVectorStore(
         embedding=embeddings,
         client=client,
-        table_name="document_chunks_test",
-        query_name="match_document_chunks_test"
+        table_name="document_chunks",
+        query_name="match_document_chunks"
     )
     return vector_store

@@ -1,12 +1,14 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status
 from pydantic import BaseModel, ConfigDict
 from api.models import Document
-from api.deps import db_dependency
+from api.deps import db_dependency, llm_dependency, embedding_dependency, supabase_dependency
 from typing import List, Optional, Any
 from dotenv import load_dotenv
 from uuid import UUID
 
 from rag_engine.pipelines.ingestion import *
+from rag_engine.ingestion.document_loader import partition_document
+from rag_engine.ingestion.chunker_and_summarizer import create_chunks_by_title, summarise_chunks
 
 import os
 import pathlib
@@ -86,9 +88,14 @@ async def upload_document(
     db.commit()
     db.refresh(doc)
 
-    total_pages, total_chunks = await asyncio.to_thread(
-    ingestion_pipeline, str(file_path), embeddings, client, llm) 
+    total_elements = await asyncio.to_thread(partition_document, str(file_path))
+    total_chunks = await asyncio.to_thread(create_chunks_by_title, total_elements)
+    total_pages = len({e.metadata.page_number for e in total_elements if e.metadata.page_number})
 
     doc.total_page  = total_pages
-    doc.total_chunk = total_chunks
+    doc.total_chunk = len(total_chunks)
     db.commit()
+
+    summarized_chunks = await asyncio.to_thread(summarise_chunks, total_chunks)
+
+    await asyncio.to_thread(upload_vector_store, summarized_chunks, embedding_dependency, supabase_dependency)
