@@ -28,14 +28,20 @@ def create_supabase_client():
     )
     return client
 
+supabase_dependency = Annotated[Session, Depends(create_supabase_client())]
+
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
         model="gpt-4o-mini",
         temperature=0
     )
 
+llm_dependency = Annotated[Session, Depends(get_llm())]
+
 def get_embedding() ->OpenAIEmbeddings:
     return OpenAIEmbeddings(model="text-embedding-3-small")
+
+embedding_dependency = Annotated[Session, Depends(get_embedding())]
  
 def get_db():
     db = SessionLocal()
