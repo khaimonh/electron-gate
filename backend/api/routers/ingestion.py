@@ -1,10 +1,10 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status
 from pydantic import BaseModel, ConfigDict
 from api.models import Document
-from api.deps import db_dependency, llm_dependency, embedding_dependency, supabase_dependency
+from api.deps import db_dependency, embedding_dependency, user_dependency
 from typing import List, Optional, Any
 from dotenv import load_dotenv
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from rag_engine.pipelines.ingestion import *
 from rag_engine.ingestion.document_loader import partition_document
@@ -53,13 +53,15 @@ class Chunk(ChunkBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-@router.post('/upload')
+@router.post('/upload', response_model=Document, status_code=status.HTTP_201_CREATED,)
 async def upload_document(
     db: db_dependency,
     file: UploadFile = File(...),
     is_private: bool = False,   
-    user_id: UUID = None,
+    current_user: dict = Depends(user_dependency)
     ):
+    
+    user_id = UUID(current_user["id"])
     
     storage_dir = pathlib.Path('storage')
     storage_dir.mkdir(exist_ok=True)
@@ -75,13 +77,14 @@ async def upload_document(
         raise HTTPException(status_code=500, detail=f"File write failed: {exc}")
 
     doc = Document(
+        document_id= uuid4(),
+        uploaded_by=user_id,
         file_name=file.filename,
         file_type=file.content_type,
         file_path=str(file_path),
         total_page=0,        
         total_chunk=0,         
         private=is_private,
-        uploaded_by=user_id,
     )
 
     db.add(doc)
@@ -98,4 +101,4 @@ async def upload_document(
 
     summarized_chunks = await asyncio.to_thread(summarise_chunks, total_chunks)
 
-    await asyncio.to_thread(upload_vector_store, summarized_chunks, embedding_dependency, supabase_dependency)
+    # await asyncio.to_thread(upload_vector_store, summarized_chunks, embedding_dependency, supabase_dependency)
