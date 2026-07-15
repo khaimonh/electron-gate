@@ -1,7 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status
 from pydantic import BaseModel, ConfigDict
+from supabase import Client
 from api.models import Document
-from api.deps import db_dependency, embedding_dependency, user_dependency
+from api.deps import db_dependency, embedding_dependency, user_dependency, supabase_dependency
 from typing import List, Optional, Any
 from dotenv import load_dotenv
 from uuid import UUID, uuid4
@@ -58,7 +59,8 @@ async def upload_document(
     db: db_dependency,
     file: UploadFile = File(...),
     is_private: bool = False,   
-    current_user: dict = Depends(user_dependency)
+    current_user: dict = Depends(user_dependency),
+    supabase_client: Client = Depends(supabase_dependency)
     ):
     
     user_id = UUID(current_user["id"])
@@ -69,12 +71,21 @@ async def upload_document(
     safe_name = pathlib.Path(file.filename).name   
     file_path = storage_dir / safe_name
 
+    bucket_name = 'pdf_upload'
+
     try:
         contents = await file.read()
         with open(file_path, 'wb') as fp:
             fp.write(contents)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"File write failed: {exc}")
+
+    upload_key = f"{uuid4()}-{file.filename}"
+
+    upload_result = supabase_client.storage.from_(bucket_name).upload(upload_key, contents)
+
+    if not upload_result:
+        raise HTTPException(status_code=500, detail="Supabase upload failed")
 
     doc = Document(
         document_id= uuid4(),

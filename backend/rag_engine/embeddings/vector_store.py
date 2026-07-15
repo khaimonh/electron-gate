@@ -15,7 +15,7 @@ def upload_vector_store(docs, embeddings, client):
         docs,
         embeddings,
         client=client,
-        table_name="document_chunks",
+        table_name="document",
         query_name="match_document_chunks"
     )
 
@@ -23,7 +23,7 @@ def get_vector_store(embeddings, client):
     vector_store = SupabaseVectorStore(
         embedding=embeddings,
         client=client,
-        table_name="document_chunks",
+        table_name="document",
         query_name="match_document_chunks"
     )
     return vector_store

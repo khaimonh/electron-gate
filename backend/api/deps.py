@@ -16,6 +16,18 @@ load_dotenv()
 SECRET_KEY = os.getenv("AUTH_SECRET_KEY")
 ALGORITHM = os.getenv("AUTH_ALGORITHM")
 
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+def create_supabase_client():
+    client = create_client(
+        supabase_key=SUPABASE_SERVICE_ROLE_KEY,
+        supabase_url=SUPABASE_URL
+    )
+    return client
+
+supabase_dependency = Annotated[Session, Depends(create_supabase_client())]
+
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
         model="gpt-4o-mini",
