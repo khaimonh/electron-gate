@@ -90,7 +90,67 @@ class User(Base):
     carts = relationship("Cart", back_populates="user", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="user")
     uploaded_documents = relationship("Document", back_populates="uploader")
+    conversations = relationship(
+        "Conversation",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    conversation_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    document_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.document_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    created_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    title = Column(String)
+
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    document = relationship("Document", back_populates="conversations")
+    user = relationship("User", back_populates="conversations")
+
+    messages = relationship(
+        "Message",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+    )
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    message_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.conversation_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    role = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+    conversation = relationship(
+        "Conversation",
+        back_populates="messages",
+    )
 
 # =========================
 # ADDRESS MODEL
