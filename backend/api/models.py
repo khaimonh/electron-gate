@@ -620,6 +620,11 @@ class Document(Base):
         back_populates="document",
         cascade="all, delete-orphan",
     )
+    conversations = relationship(
+        "Conversation",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )
 
 
 class Chunk(Base):
