@@ -8,6 +8,7 @@ from api.routers import (
     product_variants,
     products,
     variant_specs,
+    ingestion
 )
 from api.database import Base, engine, SessionLocal
 from api.models import Role
@@ -26,11 +27,13 @@ Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router)
 app.include_router(people.router)
+app.include_router(ingestion.router)
 app.include_router(categories.router)
 app.include_router(products.router)
 app.include_router(product_variants.router)
 app.include_router(product_specs.router)
 app.include_router(variant_specs.router)
+app.include_router(ingestion.router)
 
 
 def seed_default_roles() -> None:
