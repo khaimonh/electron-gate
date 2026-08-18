@@ -15,7 +15,7 @@ from sqlalchemy import (
     TIMESTAMP,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
 from api.database import Base
@@ -639,6 +639,6 @@ class Chunk(Base):
     content = Column(Text, nullable=False)
     embedding = Column(Vector(1536))
     chunk_index = Column(Integer, nullable=False)
-    chunk_metadata = Column("metadata", JSON)
+    chunk_metadata = Column("metadata", JSONB, default=dict)
 
     document = relationship("Document", back_populates="chunks")

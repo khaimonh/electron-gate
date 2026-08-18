@@ -96,6 +96,7 @@ async def upload_document(
                 content=chunk.page_content,
                 embedding=vector,
                 chunk_metadata={
+                    "document_id": str(doc.document_id),  # enables filter in match_document_chunks
                     **chunk.metadata
                 }
             )
