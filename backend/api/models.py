@@ -636,6 +636,7 @@ class Chunk(Base):
         ForeignKey("documents.document_id", ondelete="CASCADE"),
         nullable=False,
     )
+    content = Column(Text, nullable=False)
     embedding = Column(Vector(1536))
     chunk_index = Column(Integer, nullable=False)
     chunk_metadata = Column("metadata", JSON)

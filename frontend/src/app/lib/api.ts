@@ -16,10 +16,14 @@ export async function apiLogin(
   email: string,
   password: string
 ): Promise<LoginResponse> {
+  const formData = new URLSearchParams();
+  formData.append("username", email);
+  formData.append("password", password);
+
   const res = await fetch(`${BACKEND_URL}/auth/token`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: formData.toString(),
   });
 
   if (!res.ok) {

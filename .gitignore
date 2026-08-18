@@ -63,3 +63,6 @@ pnpm-debug.log*
 .vercel/
 .netlify/
 .turbo/
+
+graphify-out/
+storage/
