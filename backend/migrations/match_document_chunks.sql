@@ -1,6 +1,7 @@
 -- =============================================================================
 -- Migration: match_document_chunks
 -- Description: pgvector similarity search function for LangChain SupabaseVectorStore.
+--              Includes 'embedding' column in the return table required for MMR search.
 --              Supports optional filtering by document_id and arbitrary metadata.
 -- Run this in the Supabase SQL Editor (or via psql).
 -- =============================================================================
@@ -51,10 +52,10 @@ create index if not exists chunks_metadata_gin_idx
   on chunks using gin (metadata);
 
 -- -----------------------------------------------------------------------------
--- 5. Function for LangChain SupabaseVectorStore
+-- 5. Function for LangChain SupabaseVectorStore (with embedding for MMR)
 -- -----------------------------------------------------------------------------
 
--- Drop existing function if the signature changed
+-- Drop existing function if the signature or return type changed
 drop function if exists match_document_chunks(vector, int, jsonb);
 
 -- Create the match function
@@ -67,6 +68,7 @@ returns table (
   id          uuid,
   content     text,
   metadata    jsonb,
+  embedding   vector(1536),
   similarity  float
 )
 language plpgsql
@@ -77,6 +79,7 @@ begin
     c.chunk_id                             as id,
     c.content                              as content,
     c.metadata                             as metadata,
+    c.embedding                            as embedding,
     1 - (c.embedding <=> query_embedding)  as similarity
   from chunks c
   where
