@@ -1,6 +1,6 @@
 from ingestion.chunk_loader import *
 from pipelines.ingestion import *
-from embeddings.vector_store import create_supabase_client, get_vector_store
+from embeddings.vector_store import create_supabase_client, get_vector_store, SupabaseKeywordRetriever
 from dotenv import load_dotenv
 # from langchain_ollama import OllamaEmbeddings
 from retrieval_and_answer.retrieve_chunks import *
@@ -32,7 +32,8 @@ vector_store = get_vector_store(embeddings, client=client)
 
 # vector_store = upload_vector_store(docs, embeddings, client=client)
 
-chunks = retrieve_chunks_multi(llm, query2, vector_store)
+keyword_retriever = SupabaseKeywordRetriever(client=client, k=15)
+chunks = retrieve_chunks_multi(llm, query2, vector_store, bm25_retriever=keyword_retriever)
 final_chunks = reciprocal_rank_fusion(chunks)
 # export_chunks_to_json(chunks)
 
