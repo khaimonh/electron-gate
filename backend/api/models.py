@@ -14,8 +14,9 @@ from sqlalchemy import (
     Text,
     TIMESTAMP,
     func,
+    Computed,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID, JSONB, TSVECTOR
 from sqlalchemy.orm import relationship
 
 from api.database import Base
@@ -640,5 +641,6 @@ class Chunk(Base):
     embedding = Column(Vector(1536))
     chunk_index = Column(Integer, nullable=False)
     chunk_metadata = Column("metadata", JSONB, default=dict)
+    fts = Column(TSVECTOR, Computed("to_tsvector('english', content)", persisted=True))
 
     document = relationship("Document", back_populates="chunks")
