@@ -12,7 +12,7 @@ def retrieve_chunks(query: str, vector_store, filter_kwargs: Optional[Dict[str, 
     chunks = retriever.invoke(query)
     return chunks
 
-def retrieve_chunks_multi(llm, query: str, vector_store, filter_kwargs: Optional[Dict[str, Any]] = None):
+def retrieve_chunks_multi(llm, query: str, vector_store, filter_kwargs: Optional[Dict[str, Any]] = None, bm25_retriever=None):
     with get_openai_callback() as cb:
 
     # llm_with_tools = llm.with_structured_output(QueryVariations)
@@ -44,15 +44,21 @@ def retrieve_chunks_multi(llm, query: str, vector_store, filter_kwargs: Optional
         retriever = vector_store.as_retriever(search_type="mmr", search_kwargs=search_kwargs)
         all_retrieval_results = []  
 
-        for i, query in enumerate(query_variations, 1):
-            print(f"\n=== RESULTS FOR QUERY {i}: {query} ===")
+        for i, query_var in enumerate(query_variations, 1):
+            print(f"\n=== RESULTS FOR QUERY {i}: {query_var} ===")
             
-            docs = retriever.invoke(query)
+            # Dense retrieval
+            docs = retriever.invoke(query_var)
             all_retrieval_results.append(docs)  
+            print(f"Retrieved {len(docs)} dense documents")
             
-            print(f"Retrieved {len(docs)} documents:\n")
+            # Sparse retrieval (BM25)
+            if bm25_retriever:
+                sparse_docs = bm25_retriever.invoke(query_var)
+                all_retrieval_results.append(sparse_docs)
+                print(f"Retrieved {len(sparse_docs)} sparse documents")
             
-        print("Multi-Query Retrieval Complete!")
+        print("\nMulti-Query Retrieval Complete!")
         print(f"Total Tokens: {cb.total_tokens}")
         print(f"Prompt Tokens: {cb.prompt_tokens}")
         print(f"Completion Tokens: {cb.completion_tokens}")

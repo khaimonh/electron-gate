@@ -9,7 +9,7 @@ from api.deps import (
     llm_dependency,
     embedding_dependency,
 )
-from rag_engine.embeddings.vector_store import get_vector_store
+from rag_engine.embeddings.vector_store import get_vector_store, SupabaseKeywordRetriever
 from rag_engine.retrieval_and_answer.retrieve_chunks import retrieve_chunks, retrieve_chunks_multi
 from rag_engine.retrieval_and_answer.reciprocal_rank_fusion import reciprocal_rank_fusion
 from rag_engine.retrieval_and_answer.generate_answer import generate_final_answer
@@ -87,8 +87,13 @@ async def query_rag(
         vector_store = get_vector_store(embeddings, client=supabase_client)
 
         if request.use_multi_query:
+            keyword_retriever = SupabaseKeywordRetriever(
+                client=supabase_client,
+                k=15,
+                filter_kwargs=filter_kwargs
+            )
             chunk_lists = await asyncio.to_thread(
-                retrieve_chunks_multi, llm, request.query, vector_store, filter_kwargs
+                retrieve_chunks_multi, llm, request.query, vector_store, filter_kwargs, bm25_retriever=keyword_retriever
             )
             ranked_chunks = reciprocal_rank_fusion(chunk_lists)
         else:
