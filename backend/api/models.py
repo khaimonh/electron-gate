@@ -105,7 +105,7 @@ class Conversation(Base):
     document_id = Column(
         UUID(as_uuid=True),
         ForeignKey("documents.document_id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
 
     created_by = Column(

@@ -24,26 +24,13 @@ def _build_filter_kwargs(
     document_id: Optional[str] = None,
     document_ids: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """
-    Constructs the filter dictionary for vector store and keyword retrieval.
-    Supports single document_id, a list of document_ids, or no filter (all documents).
-    """
-    target_ids: List[str] = []
-    if document_ids:
-        for did in document_ids:
-            clean_id = str(did).strip()
-            if clean_id and clean_id not in target_ids:
-                target_ids.append(clean_id)
-    if document_id:
-        clean_id = str(document_id).strip()
-        if clean_id and clean_id not in target_ids:
-            target_ids.append(clean_id)
+    ids = [str(d).strip() for d in (document_ids or []) if str(d).strip()]
+    if document_id and str(document_id).strip() and str(document_id).strip() not in ids:
+        ids.append(str(document_id).strip())
 
-    if not target_ids:
+    if not ids:
         return {}
-    if len(target_ids) == 1:
-        return {"filter": {"document_id": target_ids[0]}}
-    return {"filter": {"document_ids": target_ids}}
+    return {"filter": {"document_id": ids[0]}} if len(ids) == 1 else {"filter": {"document_ids": ids}}
 
 
 class RAGQueryRequest(BaseModel):
