@@ -5,7 +5,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/app/context/AuthContext";
-import { apiRAGQuery, type SourceChunk, type RAGQueryResponse } from "@/app/lib/api";
+import {
+  apiRAGQuery,
+  apiGetDocuments,
+  type SourceChunk,
+  type RAGQueryResponse,
+  type DocumentUploadResponse,
+} from "@/app/lib/api";
 import Link from "next/link";
 import {
   ArrowUpIcon,
@@ -34,6 +40,10 @@ import {
   Clock,
   Terminal,
   ExternalLink,
+  Lock,
+  Globe,
+  X,
+  Filter,
 } from "lucide-react";
 
 interface AutoResizeProps {
@@ -101,107 +111,6 @@ export function QuickAction({ icon, label, onClick }: QuickActionProps) {
   );
 }
 
-// Fallback simulator for offline or standalone prototype testing
-function getSimulatedRAGResponse(query: string, topK: number): { answer: string; sources: SourceChunk[]; durationMs: number } {
-  const q = query.toLowerCase();
-  const start = performance.now();
-
-  let answer = "";
-  let sources: SourceChunk[] = [];
-
-  if (q.includes("apple") || q.includes("aapl") || q.includes("revenue") || q.includes("financial") || q.includes("10-k")) {
-    answer = `Based on Apple Inc.'s 2023 Annual Report (Form 10-K), total net sales were **$383.285 billion**, compared to $394.328 billion in 2022. 
-
-**Key Revenue Breakdown by Product Category:**
-- **iPhone:** $200.583 billion (52.3% of total net sales)
-- **Services (App Store, iCloud, Apple Pay, Subscriptions):** $85.200 billion (reached an all-time record, up 9% YoY)
-- **Wearables, Home and Accessories:** $39.845 billion
-- **Mac:** $29.357 billion
-- **iPad:** $28.300 billion
-
-Gross margin expanded to **44.1%** for the fiscal year, driven by higher services mix and product cost savings.`;
-    sources = [
-      {
-        content: "Item 7. Management's Discussion and Analysis of Financial Condition and Results of Operations. Total net sales decreased 2.8% or $11.0 billion during 2023 compared to 2022, primarily due to lower net sales of Mac and iPad, partially offset by higher net sales of Services.",
-        score: 0.964,
-        metadata: { source: "NASDAQ_AAPL_2023.pdf", page: 24, chunk_id: "AAPL-024-C1", doc_type: "financial_report" },
-      },
-      {
-        content: "Product vs Services Segment Breakdown (in millions): iPhone net sales $200,583; Mac $29,357; iPad $28,300; Wearables, Home & Accessories $39,845; Services $85,200. Total net sales $383,285.",
-        score: 0.942,
-        metadata: { source: "NASDAQ_AAPL_2023.pdf", page: 32, chunk_id: "AAPL-032-C4", doc_type: "financial_report" },
-      },
-      {
-        content: "Gross margin for 2023 was $169,148 million (44.1%) compared to $170,782 million (43.3%) in 2022. Products gross margin was 36.5% and Services gross margin was 70.8%.",
-        score: 0.915,
-        metadata: { source: "NASDAQ_AAPL_2023.pdf", page: 33, chunk_id: "AAPL-033-C2", doc_type: "financial_report" },
-      },
-    ];
-  } else if (q.includes("role") || q.includes("auth") || q.includes("permission") || q.includes("access") || q.includes("jwt")) {
-    answer = `Electron Gate implements a three-tier **Role-Based Access Control (RBAC)** architecture enforced at both the FastAPI route dependency layer and Supabase PostgreSQL RLS:
-
-1. **Admin Role (Full Access):**
-   - Manage all vector databases, chunking thresholds, model endpoints, and system telemetry.
-   - Access and search across all public and private document partitions.
-2. **Staff Role (Operations & Ingestion):**
-   - Upload new documents, review semantic chunk boundaries, and trigger table/image summarization pipelines.
-3. **User Role (Standard Query Access):**
-   - Query authorized public knowledge and their own private enclaves with sub-40ms response latency.`;
-    sources = [
-      {
-        content: "api/deps.py: user_dependency verifies JWT Bearer token claims ('sub', 'role'). If role requirements are violated, HTTPException(403, 'Forbidden: Insufficient permissions') is raised prior to vector retrieval.",
-        score: 0.958,
-        metadata: { source: "security_specification.md", section: "Authentication & Authorization", chunk_id: "SEC-001" },
-      },
-      {
-        content: "Database RLS Policy: Document chunks marked private=true are strictly filtered to matching uploaded_by user UUID in Supabase vector store RPC calls.",
-        score: 0.923,
-        metadata: { source: "match_document_chunks.sql", section: "RLS Filtering", chunk_id: "SQL-004" },
-      },
-    ];
-  } else if (q.includes("rrf") || q.includes("fusion") || q.includes("retrieval") || q.includes("hybrid") || q.includes("rerank")) {
-    answer = `The retrieval engine uses **Hybrid Multi-Query Reciprocal Rank Fusion (RRF)**:
-
-- **Step 1 (Query Expansion):** Generates 3 multi-angle sub-queries using GPT-4o-mini to overcome lexical gaps.
-- **Step 2 (Parallel Retrieval):** Executes vector cosine similarity search (OpenAI \`text-embedding-3-small\`) in parallel with Supabase PostgreSQL full-text keyword search (\`tsvector\` match).
-- **Step 3 (Reciprocal Rank Fusion):** Merges chunk lists with formula $RRF(d) = \\sum_{m} \\frac{1}{60 + r_m(d)}$ to boost documents retrieved across multiple retrieval strategies.
-- **Step 4 (Context Synthesis):** Injects top-$k$ fused chunks into the LLM context window to synthesize accurate, cited answers.`;
-    sources = [
-      {
-        content: "rag_engine/retrieval_and_answer/reciprocal_rank_fusion.py: def reciprocal_rank_fusion(chunk_lists: List[List[Document]], k: int = 60) -> List[Tuple[Document, float]]: Combines ranks across dense vector and sparse keyword streams.",
-        score: 0.971,
-        metadata: { source: "reciprocal_rank_fusion.py", chunk_id: "RRF-001", language: "python" },
-      },
-      {
-        content: "backend/api/routers/rag.py: query_rag endpoint runs retrieval_chunks_multi in threadpool and generates final answers with source attribution.",
-        score: 0.939,
-        metadata: { source: "api/routers/rag.py", chunk_id: "RAG-API-002" },
-      },
-    ];
-  } else {
-    answer = `I have searched the indexed vector knowledge base for **"${query}"**.
-
-Retrieval completed using dense vector similarity matching and semantic keyword fusion. The indexed documents contain detailed domain specifications, financial filings, technical documentation, and product catalogs.
-
-You can refine your search or scope the query to a specific uploaded document UUID using the options above.`;
-    sources = [
-      {
-        content: `Semantic match for "${query}": Found in indexed platform documentation. The knowledge base contains partitioned chunks with 1536-dimensional embeddings optimized for rapid hybrid lookup.`,
-        score: 0.895,
-        metadata: { source: "platform_overview.md", chunk_id: "GEN-001", section: "General Knowledge" },
-      },
-      {
-        content: "All documents processed through the Electron Gate pipeline are partitioned into contextual sections with sliding token overlap and stored in PostgreSQL pgvector.",
-        score: 0.862,
-        metadata: { source: "ingestion_architecture.md", chunk_id: "GEN-002" },
-      },
-    ];
-  }
-
-  const durationMs = Math.round(performance.now() - start + (Math.random() * 20 + 25));
-  return { answer, sources: sources.slice(0, topK), durationMs };
-}
-
 export default function ElectronGateChat() {
   const { token, user } = useAuth();
   const [message, setMessage] = useState("");
@@ -212,16 +121,46 @@ export default function ElectronGateChat() {
 
   const [useMultiQuery, setUseMultiQuery] = useState(true);
   const [topK, setTopK] = useState(5);
-  const [documentId, setDocumentId] = useState<string>("");
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [availableDocs, setAvailableDocs] = useState<DocumentUploadResponse[]>([]);
+  const [docDropdownOpen, setDocDropdownOpen] = useState(false);
+  const [docSearchFilter, setDocSearchFilter] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "search">("chat");
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 56,
     maxHeight: 240,
   });
 
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  // Fetch available documents for scoping
+  useEffect(() => {
+    if (token) {
+      apiGetDocuments(token)
+        .then((docs) => {
+          if (docs && docs.length > 0) {
+            setAvailableDocs(docs);
+          }
+        })
+        .catch((err) => {
+          console.warn("Could not fetch available documents for chat scoping:", err);
+        });
+    }
+  }, [token]);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDocDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -242,9 +181,35 @@ export default function ElectronGateChat() {
     }));
   };
 
+  const toggleDocSelection = (id: string) => {
+    setSelectedDocIds((prev) =>
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllDocs = () => {
+    setSelectedDocIds(availableDocs.map((d) => d.document_id));
+  };
+
+  const clearAllDocs = () => {
+    setSelectedDocIds([]);
+  };
+
   const handleSend = async (queryText?: string) => {
     const textToSend = (queryText ?? message).trim();
     if (!textToSend || isLoading) return;
+
+    if (!token) {
+      const errorMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        sender: "assistant",
+        content: "⚠️ Authentication required. Please log in to query the knowledge base.",
+        sources: [],
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+      return;
+    }
 
     const userMessageId = `user-${Date.now()}`;
     const userMsg: ChatMessage = {
@@ -262,52 +227,25 @@ export default function ElectronGateChat() {
     const startTime = performance.now();
 
     try {
-      let resultAnswer = "";
-      let resultSources: SourceChunk[] = [];
-      let isSimulated = false;
-
-      if (token) {
-        try {
-          const parsedDocIds = documentId
-            .split(/[\s,]+/)
-            .map((s) => s.trim())
-            .filter(Boolean);
-
-          const res: RAGQueryResponse = await apiRAGQuery(
-            {
-              query: textToSend,
-              document_ids: parsedDocIds.length > 0 ? parsedDocIds : undefined,
-              use_multi_query: useMultiQuery,
-              top_k: topK,
-            },
-            token
-          );
-          resultAnswer = res.answer;
-          resultSources = res.sources || [];
-        } catch (apiErr) {
-          console.warn("Backend RAG query failed or unreachable, switching to local RAG fallback:", apiErr);
-          const fallback = getSimulatedRAGResponse(textToSend, topK);
-          resultAnswer = fallback.answer;
-          resultSources = fallback.sources;
-          isSimulated = true;
-        }
-      } else {
-        const fallback = getSimulatedRAGResponse(textToSend, topK);
-        resultAnswer = fallback.answer;
-        resultSources = fallback.sources;
-        isSimulated = true;
-      }
+      const res: RAGQueryResponse = await apiRAGQuery(
+        {
+          query: textToSend,
+          document_ids: selectedDocIds.length > 0 ? selectedDocIds : undefined,
+          use_multi_query: useMultiQuery,
+          top_k: topK,
+        },
+        token
+      );
 
       const elapsed = Math.round(performance.now() - startTime);
 
       const assistantMsg: ChatMessage = {
         id: `assistant-${Date.now()}`,
         sender: "assistant",
-        content: resultAnswer,
-        sources: resultSources,
+        content: res.answer || "No answer generated.",
+        sources: res.sources || [],
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         durationMs: elapsed,
-        isSimulated,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
@@ -316,7 +254,7 @@ export default function ElectronGateChat() {
       const assistantMsg: ChatMessage = {
         id: `assistant-${Date.now()}`,
         sender: "assistant",
-        content: `⚠️ Error during RAG query: ${errorMsg}. Please check backend service status.`,
+        content: `⚠️ RAG query error: ${errorMsg}`,
         sources: [],
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
@@ -382,19 +320,25 @@ export default function ElectronGateChat() {
             onClick={() => setShowSettings(!showSettings)}
             className={cn(
               "h-8 px-3 text-xs font-mono rounded-lg border-neutral-700 bg-black/50 text-neutral-300 hover:text-white hover:bg-neutral-800 flex items-center gap-1.5 transition-all",
-              showSettings && "border-[var(--color-atelier-brass)] text-[var(--color-atelier-brass)]"
+              (showSettings || selectedDocIds.length > 0) && "border-[var(--color-atelier-brass)] text-[var(--color-atelier-brass)]"
             )}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>RAG Config</span>
+            {selectedDocIds.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-[var(--color-atelier-brass)] text-black font-bold text-[10px]">
+                {selectedDocIds.length}
+              </span>
+            )}
           </Button>
         </div>
       </div>
 
       {/* Settings Modal Drawer */}
       {showSettings && (
-        <div className="w-full max-w-6xl px-6 mt-2 z-20 transition-all flex-shrink-0">
-          <div className="p-4 rounded-xl bg-black/85 border border-neutral-700 backdrop-blur-xl shadow-2xl grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
+        <div className="w-full max-w-6xl px-6 mt-2 z-30 transition-all flex-shrink-0">
+          <div className="p-4 rounded-xl bg-black/90 border border-neutral-700 backdrop-blur-xl shadow-2xl grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
+            {/* 1. Multi-Query Toggle */}
             <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-neutral-900/60 border border-neutral-800">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-neutral-200">Multi-Query RRF</span>
@@ -410,6 +354,7 @@ export default function ElectronGateChat() {
               </p>
             </div>
 
+            {/* 2. Top-K Selector */}
             <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-neutral-900/60 border border-neutral-800">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-neutral-200">Top-K Sources: {topK}</span>
@@ -429,15 +374,138 @@ export default function ElectronGateChat() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-neutral-900/60 border border-neutral-800">
-              <span className="font-semibold text-neutral-200">Scope Document UUID(s) (Optional)</span>
-              <input
-                type="text"
-                value={documentId}
-                onChange={(e) => setDocumentId(e.target.value)}
-                placeholder="Single UUID or comma-separated UUIDs"
-                className="px-2.5 py-1.5 rounded bg-black/60 border border-neutral-700 text-neutral-200 placeholder:text-neutral-500 text-[11px] focus:outline-none focus:border-[var(--color-atelier-brass)]"
-              />
+            {/* 3. Multi-Select Document Dropdown Menu */}
+            <div
+              ref={dropdownRef}
+              className="relative flex flex-col gap-1.5 p-3 rounded-lg bg-neutral-900/60 border border-neutral-800"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-neutral-200">
+                  Scope Documents ({selectedDocIds.length === 0 ? "All Global" : `${selectedDocIds.length} Selected`})
+                </span>
+                {selectedDocIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearAllDocs}
+                    className="text-[10px] text-rose-400 hover:underline font-mono"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+
+              {/* Dropdown Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setDocDropdownOpen(!docDropdownOpen)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-black/70 border border-neutral-700 hover:border-[var(--color-atelier-brass)] text-left text-xs transition-colors"
+              >
+                <div className="flex items-center gap-2 truncate min-w-0 pr-2">
+                  <FileText className="w-3.5 h-3.5 text-[var(--color-atelier-brass,#d4a373)] flex-shrink-0" />
+                  <span className="truncate text-neutral-200 font-mono text-[11px]">
+                    {selectedDocIds.length === 0
+                      ? "All Documents (Global Corpus)"
+                      : selectedDocIds.length === 1
+                      ? (availableDocs.find((d) => d.document_id === selectedDocIds[0])?.file_name || "1 Document Selected")
+                      : `${selectedDocIds.length} Documents Selected`}
+                  </span>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "w-3.5 h-3.5 text-neutral-400 flex-shrink-0 transition-transform duration-200",
+                    docDropdownOpen && "rotate-180 text-[var(--color-atelier-brass)]"
+                  )}
+                />
+              </button>
+
+              {/* Floating Multi-Select Dropdown Menu */}
+              {docDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1.5 z-50 p-2.5 rounded-xl bg-neutral-950/95 border border-neutral-700 shadow-2xl backdrop-blur-xl flex flex-col gap-2 max-h-72 animate-in fade-in zoom-in-95 duration-100">
+                  {/* Search inside dropdown */}
+                  <div className="relative">
+                    <Search className="w-3 h-3 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={docSearchFilter}
+                      onChange={(e) => setDocSearchFilter(e.target.value)}
+                      placeholder="Search documents by name..."
+                      className="w-full pl-7 pr-2 py-1.5 rounded bg-neutral-900 border border-neutral-800 text-[11px] text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:border-[var(--color-atelier-brass)] font-mono"
+                    />
+                  </div>
+
+                  {/* Actions Row */}
+                  <div className="flex items-center justify-between text-[10px] font-mono px-1 text-neutral-400 border-b border-neutral-800/80 pb-1.5">
+                    <button
+                      type="button"
+                      onClick={selectAllDocs}
+                      className="hover:text-[var(--color-atelier-brass)] transition-colors"
+                    >
+                      Select All ({availableDocs.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearAllDocs}
+                      className="hover:text-rose-400 transition-colors"
+                    >
+                      Clear (Search All)
+                    </button>
+                  </div>
+
+                  {/* Checkbox Options List */}
+                  <div className="flex flex-col gap-1 overflow-y-auto max-h-44 scrollbar-thin scrollbar-thumb-neutral-800 pr-1">
+                    {availableDocs.length === 0 ? (
+                      <div className="text-center py-4 text-[11px] text-neutral-500 font-mono">
+                        No uploaded documents found.
+                      </div>
+                    ) : (
+                      availableDocs
+                        .filter((d) =>
+                          d.file_name.toLowerCase().includes(docSearchFilter.toLowerCase())
+                        )
+                        .map((doc) => {
+                          const isSelected = selectedDocIds.includes(doc.document_id);
+                          return (
+                            <label
+                              key={doc.document_id}
+                              className={cn(
+                                "flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors text-xs font-mono select-none",
+                                isSelected
+                                  ? "bg-[var(--color-paper-card,#1b1f2b)] text-white border border-[var(--color-atelier-brass)]/40"
+                                  : "hover:bg-neutral-900 text-neutral-300 border border-transparent"
+                              )}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleDocSelection(doc.document_id)}
+                                className="rounded border-neutral-700 accent-[var(--color-atelier-brass,#d4a373)] cursor-pointer"
+                              />
+                              <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
+                                <span className="truncate text-[11px] font-medium">
+                                  {doc.file_name}
+                                </span>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <span
+                                    className={`text-[9px] px-1.5 py-0.2 rounded border ${
+                                      doc.private
+                                        ? "bg-amber-950/30 text-amber-300 border-amber-800/40"
+                                        : "bg-emerald-950/30 text-emerald-300 border-emerald-800/40"
+                                    }`}
+                                  >
+                                    {doc.private ? "Private" : "Public"}
+                                  </span>
+                                  <span className="text-[10px] text-neutral-500">
+                                    {doc.total_chunk || 0} chunks
+                                  </span>
+                                </div>
+                              </div>
+                            </label>
+                          );
+                        })
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -662,6 +730,42 @@ export default function ElectronGateChat() {
 
         {/* Input Box Outer Container */}
         <div className="relative bg-black/75 backdrop-blur-xl rounded-2xl border border-neutral-700/90 shadow-2xl transition-all focus-within:border-[var(--color-atelier-brass)] focus-within:ring-1 focus-within:ring-[var(--color-atelier-brass)]/40">
+          {/* Active scoped document chips */}
+          {selectedDocIds.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap px-4 pt-3 pb-1.5 border-b border-neutral-800/60 font-mono text-[11px]">
+              <span className="text-neutral-400 flex items-center gap-1">
+                <Filter className="w-3 h-3 text-[var(--color-atelier-brass,#d4a373)]" />
+                <span>Scoped to:</span>
+              </span>
+              {selectedDocIds.map((docId) => {
+                const doc = availableDocs.find((d) => d.document_id === docId);
+                return (
+                  <span
+                    key={docId}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-paper-card)] border border-[var(--color-atelier-brass)]/40 text-[var(--color-atelier-brass,#d4a373)]"
+                  >
+                    <span className="truncate max-w-[120px]">{doc?.file_name || docId.substring(0, 8)}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleDocSelection(docId)}
+                      className="hover:text-white p-0.5 cursor-pointer"
+                      title="Remove filter"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </span>
+                );
+              })}
+              <button
+                type="button"
+                onClick={clearAllDocs}
+                className="text-neutral-500 hover:text-rose-400 text-[10px] ml-1 cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
           <Textarea
             ref={textareaRef}
             value={message}
@@ -701,11 +805,19 @@ export default function ElectronGateChat() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowSettings(!showSettings)}
-                className="h-8 px-2 text-[11px] font-mono text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/80 rounded-lg flex items-center gap-1"
+                className={cn(
+                  "h-8 px-2 text-[11px] font-mono text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/80 rounded-lg flex items-center gap-1",
+                  selectedDocIds.length > 0 && "text-[var(--color-atelier-brass,#d4a373)]"
+                )}
                 title="Configure Retrieval Parameters"
               >
                 <SlidersHorizontal className="w-3 h-3" />
                 <span className="hidden sm:inline">k={topK}</span>
+                {selectedDocIds.length > 0 && (
+                  <span className="hidden sm:inline text-[var(--color-atelier-brass,#d4a373)] font-semibold">
+                    · {selectedDocIds.length} doc{selectedDocIds.length > 1 ? "s" : ""}
+                  </span>
+                )}
                 {useMultiQuery && <span className="hidden md:inline text-[var(--color-terminal-green)]">· RRF</span>}
               </Button>
             </div>
