@@ -4,7 +4,7 @@ from supabase import Client
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from api.models import Document as DocumentModel, Chunk as ChunkModel
 from api.deps import db_dependency, user_dependency, supabase_dependency, llm_dependency, embedding_dependency
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID, uuid4
 import pathlib
 import asyncio
@@ -28,6 +28,93 @@ class DocumentResponse(BaseModel):
     private: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+
+@router.get('/documents', response_model=List[DocumentResponse], status_code=status.HTTP_200_OK)
+async def get_documents(
+    db: db_dependency,
+    current_user: user_dependency,
+):
+    """
+    Retrieve all document metadata (document_id, file_name, file_type, total_page, total_chunk, private, etc.).
+    - Admin/Staff: Can view all documents in the system.
+    - Regular Users: Can view all public documents and their own private documents.
+    """
+    user_id = UUID(str(current_user["id"]))
+    user_role = current_user.get("role", "User")
+
+    if user_role in ("Admin", "Staff"):
+        documents = db.query(DocumentModel).order_by(DocumentModel.file_name.asc()).all()
+    else:
+        documents = (
+            db.query(DocumentModel)
+            .filter((DocumentModel.private == False) | (DocumentModel.uploaded_by == user_id))
+            .order_by(DocumentModel.file_name.asc())
+            .all()
+        )
+
+    return documents
+
+
+@router.get('/documents/{document_id}', response_model=DocumentResponse, status_code=status.HTTP_200_OK)
+async def get_document_by_id(
+    document_id: UUID,
+    db: db_dependency,
+    current_user: user_dependency,
+):
+    """
+    Retrieve metadata for a specific document by its UUID.
+    """
+    user_id = UUID(str(current_user["id"]))
+    user_role = current_user.get("role", "User")
+
+    doc = db.query(DocumentModel).filter(DocumentModel.document_id == document_id).first()
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID {document_id} not found",
+        )
+
+    if doc.private and user_role not in ("Admin", "Staff") and doc.uploaded_by != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access to this private document is restricted",
+        )
+
+    return doc
+
+
+@router.delete('/documents/{document_id}', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(
+    document_id: UUID,
+    db: db_dependency,
+    current_user: user_dependency,
+):
+    """
+    Delete a document and cascade-delete its vector chunks.
+    - Admin/Staff: Can delete any document.
+    - Regular Users: Can only delete their own uploaded documents.
+    """
+    user_id = UUID(str(current_user["id"]))
+    user_role = current_user.get("role", "User")
+
+    doc = db.query(DocumentModel).filter(DocumentModel.document_id == document_id).first()
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID {document_id} not found",
+        )
+
+    if user_role not in ("Admin", "Staff") and doc.uploaded_by != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete this document",
+        )
+
+    db.delete(doc)
+    db.commit()
+    return None
+
 
 @router.post('/upload', response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
