@@ -4,6 +4,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { UploadCloud } from "lucide-react";
 
 function AdminPanel() {
   return (
@@ -74,10 +75,10 @@ function AdminPanel() {
         Administrator Actions
       </div>
       <div className="atelier-actions-grid">
-        <button className="atelier-action-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
-          <span>Vector Database</span>
-        </button>
+        <Link href="/dashboard/upload" className="atelier-action-btn">
+          <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" />
+          <span>Upload Documents</span>
+        </Link>
         <button className="atelier-action-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 00-1-1.73L12 2 4 6.27A2 2 0 003 8v8a2 2 0 001 1.73L12 22l8-4.27A2 2 0 0021 16z" /></svg>
           <span>Sync Embeddings</span>
@@ -167,10 +168,10 @@ function StaffPanel() {
         Document Operations
       </div>
       <div className="atelier-actions-grid">
-        <button className="atelier-action-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+        <Link href="/dashboard/upload" className="atelier-action-btn">
+          <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" />
           <span>Upload Documents</span>
-        </button>
+        </Link>
         <button className="atelier-action-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
           <span>Review Chunks</span>
@@ -254,9 +255,13 @@ function UserPanel() {
       </div>
 
       <div className="font-mono text-xs text-[var(--color-ink-dim)] uppercase tracking-wider font-semibold">
-        Search Actions
+        Search &amp; Knowledge Actions
       </div>
       <div className="atelier-actions-grid">
+        <Link href="/dashboard/upload" className="atelier-action-btn">
+          <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" />
+          <span>Upload Document</span>
+        </Link>
         <button className="atelier-action-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3" /></svg>
           <span>New Search</span>
@@ -268,10 +273,6 @@ function UserPanel() {
         <button className="atelier-action-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
           <span>Saved Sources</span>
-        </button>
-        <button className="atelier-action-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-          <span>Export Results (JSON)</span>
         </button>
       </div>
     </div>
@@ -319,7 +320,15 @@ function DashboardContent() {
           <span>Electron Gate · Dashboard</span>
         </Link>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/upload"
+            className="atelier-btn atelier-btn-primary !py-1.5 !px-3 text-xs flex items-center gap-1.5"
+          >
+            <UploadCloud className="w-3.5 h-3.5" />
+            <span>Upload</span>
+          </Link>
+
           <div className="atelier-user-badge">
             <div className="atelier-avatar">
               {(user.full_name || user.email).charAt(0).toUpperCase()}
@@ -380,4 +389,3 @@ export default function DashboardPage() {
     </ProtectedRoute>
   );
 }
-
