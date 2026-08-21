@@ -1,37 +1,17 @@
-from dotenv import load_dotenv
-import os
+from typing import Any, List, Dict
+from pydantic import Field
 from langchain_community.vectorstores import SupabaseVectorStore
-
-load_dotenv(override=True)
-
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.documents import Document
 
 
-
-def upload_vector_store(docs, embeddings, client):
-    
-    vector_store = SupabaseVectorStore.from_documents(
-        docs,
-        embeddings,
-        client=client,
-        table_name="chunks",
-        query_name="match_document_chunks"
-    )
-
-def get_vector_store(embeddings, client):
-    vector_store = SupabaseVectorStore(
+def get_vector_store(embeddings, client) -> SupabaseVectorStore:
+    return SupabaseVectorStore(
         embedding=embeddings,
         client=client,
         table_name="chunks",
-        query_name="match_document_chunks"
+        query_name="match_document_chunks",
     )
-    return vector_store
-
-from typing import Any, List, Dict
-from pydantic import Field
-from langchain_core.retrievers import BaseRetriever
-from langchain_core.documents import Document
 
 class SupabaseKeywordRetriever(BaseRetriever):
     client: Any = Field(exclude=True)
