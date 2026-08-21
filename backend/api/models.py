@@ -14,8 +14,9 @@ from sqlalchemy import (
     Text,
     TIMESTAMP,
     func,
+    Computed,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB, TSVECTOR
 from sqlalchemy.orm import relationship
 
 from api.database import Base
@@ -104,7 +105,7 @@ class Conversation(Base):
     document_id = Column(
         UUID(as_uuid=True),
         ForeignKey("documents.document_id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
 
     created_by = Column(
@@ -636,8 +637,10 @@ class Chunk(Base):
         ForeignKey("documents.document_id", ondelete="CASCADE"),
         nullable=False,
     )
+    content = Column(Text, nullable=False)
     embedding = Column(Vector(1536))
     chunk_index = Column(Integer, nullable=False)
-    chunk_metadata = Column("metadata", JSON)
+    chunk_metadata = Column("metadata", JSONB, default=dict)
+    fts = Column(TSVECTOR, Computed("to_tsvector('english', content)", persisted=True))
 
     document = relationship("Document", back_populates="chunks")

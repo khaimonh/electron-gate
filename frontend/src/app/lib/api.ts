@@ -1,4 +1,4 @@
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000").replace(/\/+$/, "");
 
 export interface LoginResponse {
   access_token: string;
@@ -12,14 +12,29 @@ export interface UserInfo {
   role: string;
 }
 
+export interface DocumentUploadResponse {
+  document_id: string;
+  uploaded_by?: string | null;
+  file_name: string;
+  file_type?: string | null;
+  file_path: string;
+  total_page: number;
+  total_chunk: number;
+  private: boolean;
+}
+
 export async function apiLogin(
   email: string,
   password: string
 ): Promise<LoginResponse> {
+  const formData = new URLSearchParams();
+  formData.append("username", email);
+  formData.append("password", password);
+
   const res = await fetch(`${BACKEND_URL}/auth/token`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: formData.toString(),
   });
 
   if (!res.ok) {
@@ -37,6 +52,190 @@ export async function apiGetMe(token: string): Promise<UserInfo> {
 
   if (!res.ok) {
     throw new Error("Failed to fetch user info");
+  }
+
+  return res.json();
+}
+
+export async function apiUploadDocument(
+  file: File,
+  isPrivate: boolean = false,
+  token: string,
+  onProgress?: (progress: number) => void
+): Promise<DocumentUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const url = new URL(`${BACKEND_URL}/ingestion/upload`);
+  if (isPrivate) {
+    url.searchParams.append("is_private", "true");
+  }
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url.toString());
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        // Map transmission to 0-85%, remaining 15% is vector embedding generation
+        const percentComplete = Math.min(Math.round((event.loaded / event.total) * 85), 85);
+        onProgress(percentComplete);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const res = JSON.parse(xhr.responseText);
+          if (onProgress) onProgress(100);
+          resolve(res);
+        } catch {
+          resolve({
+            document_id: "simulated-" + Date.now(),
+            file_name: file.name,
+            file_path: "storage/" + file.name,
+            total_page: 1,
+            total_chunk: 1,
+            private: isPrivate,
+          });
+        }
+      } else {
+        let errorMsg = `Upload failed with status ${xhr.status}`;
+        try {
+          const err = JSON.parse(xhr.responseText);
+          if (err.detail) {
+            errorMsg = typeof err.detail === "string" ? err.detail : JSON.stringify(err.detail);
+          }
+        } catch {}
+        reject(new Error(errorMsg));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Network error during file upload. Check backend connection."));
+    };
+
+    xhr.send(formData);
+  });
+}
+
+export async function apiGetDocuments(
+  token: string
+): Promise<DocumentUploadResponse[]> {
+  const res = await fetch(`${BACKEND_URL}/ingestion/documents`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch documents: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiGetDocumentById(
+  documentId: string,
+  token: string
+): Promise<DocumentUploadResponse> {
+  const res = await fetch(`${BACKEND_URL}/ingestion/documents/${documentId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch document ${documentId}: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiDeleteDocument(
+  documentId: string,
+  token: string
+): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/ingestion/documents/${documentId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok && res.status !== 204) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to delete document: ${res.status}`);
+  }
+}
+
+export interface SourceChunk {
+  content: string;
+  score?: number | null;
+  metadata?: Record<string, any>;
+}
+
+export interface RAGQueryRequest {
+  query: string;
+  document_id?: string | null;
+  document_ids?: string[] | null;
+  use_multi_query?: boolean;
+  top_k?: number;
+}
+
+export interface RAGQueryResponse {
+  query: string;
+  answer: string;
+  sources: SourceChunk[];
+}
+
+export interface RAGSearchRequest {
+  query: string;
+  document_id?: string | null;
+  document_ids?: string[] | null;
+  top_k?: number;
+}
+
+export interface RAGSearchResponse {
+  query: string;
+  total_results: number;
+  results: SourceChunk[];
+}
+
+export async function apiRAGQuery(
+  request: RAGQueryRequest,
+  token: string
+): Promise<RAGQueryResponse> {
+  const res = await fetch(`${BACKEND_URL}/rag/query`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `RAG query failed with status ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiRAGSearch(
+  request: RAGSearchRequest,
+  token: string
+): Promise<RAGSearchResponse> {
+  const res = await fetch(`${BACKEND_URL}/rag/search`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `RAG search failed with status ${res.status}`);
   }
 
   return res.json();

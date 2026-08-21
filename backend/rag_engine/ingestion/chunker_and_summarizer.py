@@ -102,26 +102,21 @@ def create_ai_summary(text: str, tables: List[str], images: List[str], llm) -> s
             return summary
 
 def summarise_chunks(chunks, llm):
-    
     langchain_documents = []
     total_chunks = len(chunks)
-    
+
     for i, chunk in enumerate(chunks):
         current_chunk = i + 1
         print(f"   Processing chunk {current_chunk}/{total_chunks}")
-        
-        # Analyze chunk content
-        content_data = separate_content_types(chunk)        
 
-        # print(f"     Types found: {content_data['types']}")
-        # print(f"     Tables: {len(content_data['tables'])}, Images: {len(content_data['images'])}")
-        
+        content_data = separate_content_types(chunk)
+
         if content_data['tables'] or content_data['images']:
             print(f"     → Creating AI summary for mixed content...")
             try:
                 enhanced_content = create_ai_summary(
                     content_data['text'],
-                    content_data['tables'], 
+                    content_data['tables'],
                     content_data['images'],
                     llm
                 )
@@ -133,8 +128,7 @@ def summarise_chunks(chunks, llm):
         else:
             print(f"Using raw text (no tables/images)")
             enhanced_content = content_data['text']
-        
-        # Create LangChain Document with metadata
+
         doc = Document(
             page_content=enhanced_content,
             metadata={
@@ -145,9 +139,9 @@ def summarise_chunks(chunks, llm):
                 })
             }
         )
-        
+
         langchain_documents.append(doc)
-    
+
     print(f"Processed {len(langchain_documents)} chunks")
     return langchain_documents
 

@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 from dotenv import load_dotenv
-from supabase import create_client
+from supabase import create_client, Client
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
 import os 
@@ -19,14 +19,14 @@ ALGORITHM = os.getenv("AUTH_ALGORITHM")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-def create_supabase_client():
+def create_supabase_client() -> Client:
     client = create_client(
         supabase_key=SUPABASE_SERVICE_ROLE_KEY,
         supabase_url=SUPABASE_URL
     )
     return client
 
-supabase_dependency = Annotated[Session, Depends(create_supabase_client())]
+supabase_dependency = Annotated[Client, Depends(create_supabase_client)]
 
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
@@ -34,12 +34,12 @@ def get_llm() -> ChatOpenAI:
         temperature=0
     )
 
-llm_dependency = Annotated[Session, Depends(get_llm())]
+llm_dependency = Annotated[ChatOpenAI, Depends(get_llm)]
 
-def get_embedding() ->OpenAIEmbeddings:
+def get_embedding() -> OpenAIEmbeddings:
     return OpenAIEmbeddings(model="text-embedding-3-small")
 
-embedding_dependency = Annotated[Session, Depends(get_embedding())]
+embedding_dependency = Annotated[OpenAIEmbeddings, Depends(get_embedding)]
  
 def get_db():
     db = SessionLocal()

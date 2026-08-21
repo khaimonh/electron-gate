@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from jose import jwt
 from dotenv import load_dotenv
 import os
+from fastapi.security import OAuth2PasswordRequestForm
 from api.models import User, Role
 from api.deps import db_dependency, bcrypt_context, user_dependency
 
@@ -47,6 +48,8 @@ def authenticate_user(email: str, password: str, db):
     user = db.query(User).filter(User.email == email).first()
     if not user:
         return False
+    if not user.password:
+        return False
     if not bcrypt_context.verify(password, user.password):
         return False
     return user
@@ -72,11 +75,37 @@ async def create_user(create_user_request: UserCreateRequest, db: db_dependency)
     db.commit()
 
 @router.post('/token', response_model=Token)
-async def login_for_access_token(login_request: UserLoginRequest, db: db_dependency):
+async def login_for_access_token(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    db: db_dependency
+):
+    user = authenticate_user(form_data.username, form_data.password, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate user",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    role_name = user.role.role_name if user.role else "User"
+    token = create_access_token(user.email, str(user.user_id), role_name, timedelta(hours=10))
+    
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post('/login', response_model=Token)
+async def login_with_json(
+    login_request: UserLoginRequest,
+    db: db_dependency
+):
     user = authenticate_user(login_request.email, login_request.password, db)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate user")
-    token = create_access_token(user.email, str(user.user_id), user.role.role_name, timedelta(hours=10))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate user",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    role_name = user.role.role_name if user.role else "User"
+    token = create_access_token(user.email, str(user.user_id), role_name, timedelta(hours=10))
     
     return {"access_token": token, "token_type": "bearer"}
 
