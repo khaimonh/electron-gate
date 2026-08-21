@@ -20,11 +20,41 @@ router = APIRouter(
 )
 
 
+def _build_filter_kwargs(
+    document_id: Optional[str] = None,
+    document_ids: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Constructs the filter dictionary for vector store and keyword retrieval.
+    Supports single document_id, a list of document_ids, or no filter (all documents).
+    """
+    target_ids: List[str] = []
+    if document_ids:
+        for did in document_ids:
+            clean_id = str(did).strip()
+            if clean_id and clean_id not in target_ids:
+                target_ids.append(clean_id)
+    if document_id:
+        clean_id = str(document_id).strip()
+        if clean_id and clean_id not in target_ids:
+            target_ids.append(clean_id)
+
+    if not target_ids:
+        return {}
+    if len(target_ids) == 1:
+        return {"filter": {"document_id": target_ids[0]}}
+    return {"filter": {"document_ids": target_ids}}
+
+
 class RAGQueryRequest(BaseModel):
     query: str = Field(..., min_length=1, description="Question or prompt to answer")
     document_id: Optional[str] = Field(
         default=None,
-        description="Scope retrieval to a specific uploaded document UUID",
+        description="Scope retrieval to a single uploaded document UUID (for backwards compatibility)",
+    )
+    document_ids: Optional[List[str]] = Field(
+        default=None,
+        description="Scope retrieval to one or multiple uploaded document UUIDs",
     )
     use_multi_query: bool = Field(
         default=True,
@@ -54,7 +84,11 @@ class RAGSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, description="Search query")
     document_id: Optional[str] = Field(
         default=None,
-        description="Scope retrieval to a specific uploaded document UUID",
+        description="Scope retrieval to a single uploaded document UUID (for backwards compatibility)",
+    )
+    document_ids: Optional[List[str]] = Field(
+        default=None,
+        description="Scope retrieval to one or multiple uploaded document UUIDs",
     )
     top_k: int = Field(default=5, ge=1, le=50, description="Max chunks to retrieve")
 
@@ -78,12 +112,15 @@ async def query_rag(
     RAG QA endpoint:
     1. Connects to the vector store.
     2. Runs retrieval (multi-query MMR or standard single query).
-       Optionally scoped to a single document via document_id.
+       Optionally scoped to single or multiple documents via document_id / document_ids.
     3. Fuses & reranks retrieved chunks using Reciprocal Rank Fusion.
     4. Synthesizes a multimodal answer with the LLM.
     """
     try:
-        filter_kwargs = {"filter": {"document_id": str(request.document_id)}} if request.document_id else {}
+        filter_kwargs = _build_filter_kwargs(
+            document_id=request.document_id,
+            document_ids=request.document_ids,
+        )
         vector_store = get_vector_store(embeddings, client=supabase_client)
 
         if request.use_multi_query:
@@ -139,10 +176,13 @@ async def search_chunks(
 ):
     """
     Direct semantic chunk search without LLM answer generation.
-    Optionally scoped to a single document via document_id.
+    Optionally scoped to single or multiple documents via document_id / document_ids.
     """
     try:
-        filter_kwargs = {"filter": {"document_id": str(request.document_id)}} if request.document_id else {}
+        filter_kwargs = _build_filter_kwargs(
+            document_id=request.document_id,
+            document_ids=request.document_ids,
+        )
         vector_store = get_vector_store(embeddings, client=supabase_client)
         docs = await asyncio.to_thread(
             retrieve_chunks, request.query, vector_store, filter_kwargs
