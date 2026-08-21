@@ -4,7 +4,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { UploadCloud, Sparkles, MessageSquare, Search } from "lucide-react";
+import { UploadCloud, Sparkles, MessageSquare, Search, LogOut } from "lucide-react";
 
 interface PanelConfig {
   title: string;

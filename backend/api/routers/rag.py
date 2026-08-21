@@ -1,10 +1,14 @@
 import asyncio
 from typing import List, Optional, Any, Dict
+from uuid import UUID
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from api.models import Document as DocumentModel
 from api.deps import (
     user_dependency,
+    db_dependency,
     supabase_dependency,
     llm_dependency,
     embedding_dependency,
@@ -31,6 +35,69 @@ def _build_filter_kwargs(
     if not ids:
         return {}
     return {"filter": {"document_id": ids[0]}} if len(ids) == 1 else {"filter": {"document_ids": ids}}
+
+
+def _resolve_and_validate_scoped_doc_ids(
+    db: Session,
+    current_user: dict,
+    document_id: Optional[str] = None,
+    document_ids: Optional[List[str]] = None,
+) -> Optional[List[str]]:
+    """
+    Validates requested document IDs against RBAC and ownership:
+    - Admin/Staff: Authorized to query any document; if unscoped, returns None (all docs).
+    - Regular Users:
+      * If specific document_ids / document_id are requested, ensures every requested
+        document is public OR owned by current_user. Raises HTTP 403 if unauthorized.
+      * If unscoped, returns the list of all document_ids accessible to this user
+        (public docs + own private docs) to quarantine retrieval and prevent leaking
+        other users' private vector data.
+    """
+    user_id = UUID(str(current_user["id"]))
+    user_role = current_user.get("role", "User")
+
+    raw_ids = [str(d).strip() for d in (document_ids or []) if str(d).strip()]
+    if document_id and str(document_id).strip() and str(document_id).strip() not in raw_ids:
+        raw_ids.append(str(document_id).strip())
+
+    # 1. Admin and Staff can query any document or query globally
+    if user_role in ("Admin", "Staff"):
+        return raw_ids if raw_ids else None
+
+    # 2. Regular User with specific requested document IDs
+    if raw_ids:
+        for doc_id_str in raw_ids:
+            try:
+                doc_uuid = UUID(doc_id_str)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid document UUID format: {doc_id_str}",
+                )
+
+            doc = db.query(DocumentModel).filter(DocumentModel.document_id == doc_uuid).first()
+            if not doc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Document {doc_id_str} not found",
+                )
+
+            # If document is private and not uploaded by this user -> FORBIDDEN
+            if doc.private and doc.uploaded_by != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Access denied: Document '{doc.file_name}' ({doc_id_str}) is in a private enclave and not accessible to your account.",
+                )
+        return raw_ids
+
+    # 3. Regular User with unscoped / global query -> resolve accessible documents
+    accessible_docs = (
+        db.query(DocumentModel.document_id)
+        .filter((DocumentModel.private == False) | (DocumentModel.uploaded_by == user_id))
+        .all()
+    )
+    accessible_ids = [str(row[0]) for row in accessible_docs]
+    return accessible_ids
 
 
 class RAGQueryRequest(BaseModel):
@@ -91,23 +158,36 @@ class RAGSearchResponse(BaseModel):
 async def query_rag(
     request: RAGQueryRequest,
     current_user: user_dependency,
+    db: db_dependency,
     supabase_client: supabase_dependency,
     llm: llm_dependency,
     embeddings: embedding_dependency,
 ):
     """
     RAG QA endpoint:
-    1. Connects to the vector store.
-    2. Runs retrieval (multi-query MMR or standard single query).
-       Optionally scoped to single or multiple documents via document_id / document_ids.
+    1. Validates requested document scopes against RBAC and isolates vector retrieval.
+    2. Runs retrieval (multi-query MMR or standard single query) scoped only to authorized docs.
     3. Fuses & reranks retrieved chunks using Reciprocal Rank Fusion.
     4. Synthesizes a multimodal answer with the LLM.
     """
     try:
-        filter_kwargs = _build_filter_kwargs(
+        # Enforce RBAC validation & isolation
+        scoped_doc_ids = _resolve_and_validate_scoped_doc_ids(
+            db=db,
+            current_user=current_user,
             document_id=request.document_id,
             document_ids=request.document_ids,
         )
+
+        # If user has no accessible documents in their knowledge enclave
+        if scoped_doc_ids is not None and len(scoped_doc_ids) == 0:
+            return RAGQueryResponse(
+                query=request.query,
+                answer="No accessible documents found in your knowledge base. Please upload documents or request access to public platform materials.",
+                sources=[],
+            )
+
+        filter_kwargs = _build_filter_kwargs(document_ids=scoped_doc_ids)
         vector_store = get_vector_store(embeddings, client=supabase_client)
 
         if request.use_multi_query:
@@ -147,6 +227,8 @@ async def query_rag(
             answer=str(answer) if answer is not None else "",
             sources=sources,
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -158,18 +240,30 @@ async def query_rag(
 async def search_chunks(
     request: RAGSearchRequest,
     current_user: user_dependency,
+    db: db_dependency,
     supabase_client: supabase_dependency,
     embeddings: embedding_dependency,
 ):
     """
     Direct semantic chunk search without LLM answer generation.
-    Optionally scoped to single or multiple documents via document_id / document_ids.
+    Enforces document ownership & access isolation.
     """
     try:
-        filter_kwargs = _build_filter_kwargs(
+        scoped_doc_ids = _resolve_and_validate_scoped_doc_ids(
+            db=db,
+            current_user=current_user,
             document_id=request.document_id,
             document_ids=request.document_ids,
         )
+
+        if scoped_doc_ids is not None and len(scoped_doc_ids) == 0:
+            return RAGSearchResponse(
+                query=request.query,
+                total_results=0,
+                results=[],
+            )
+
+        filter_kwargs = _build_filter_kwargs(document_ids=scoped_doc_ids)
         vector_store = get_vector_store(embeddings, client=supabase_client)
         docs = await asyncio.to_thread(
             retrieve_chunks, request.query, vector_store, filter_kwargs
@@ -188,6 +282,8 @@ async def search_chunks(
             total_results=len(results),
             results=results,
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
