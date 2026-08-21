@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Info,
   ShieldCheck,
+  MessageSquare,
 } from "lucide-react";
 
 function UploadContent() {
@@ -41,7 +42,6 @@ function UploadContent() {
     router.push("/login");
   };
 
-  // Upload a single file to the backend
   const uploadSingleFile = React.useCallback(
     async (uploadedFile: UploadedFile) => {
       if (!token) {
@@ -104,7 +104,6 @@ function UploadContent() {
     [token, isPrivate]
   );
 
-  // Handle addition of new files
   const handleFilesChange = (newFiles: File[]) => {
     const newUploadedFiles: UploadedFile[] = newFiles.map((file) => ({
       id: `${file.name}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -122,12 +121,10 @@ function UploadContent() {
     }
   };
 
-  // Handle removing a file from the list
   const handleFileRemove = (id: string) => {
     setFiles((prev) => prev.filter((file) => file.id !== id));
   };
 
-  // Trigger manual upload for all pending or errored files
   const handleUploadAll = async () => {
     setIsProcessing(true);
     const pending = files.filter((f) => f.status !== "completed");
@@ -145,7 +142,6 @@ function UploadContent() {
 
   return (
     <div className="atelier-dashboard">
-      {/* Background drafting grid & filament */}
       <div className="atelier-canvas-grid" />
       <div className="atelier-filament-glow" />
 
@@ -176,6 +172,21 @@ function UploadContent() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/documents"
+            className="atelier-btn atelier-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5"
+          >
+            <span className="hidden sm:inline">Documents</span>
+          </Link>
+
+          <Link
+            href="/dashboard/chat"
+            className="atelier-btn atelier-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 border-[var(--color-atelier-brass)]/40 text-[var(--color-atelier-brass)]"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Chat</span>
+          </Link>
+
           <Link
             href="/dashboard"
             className="atelier-btn atelier-btn-secondary !py-1.5 !px-3 text-xs"
@@ -501,13 +512,28 @@ function UploadContent() {
                 <span className="text-xs font-mono text-[var(--color-ink-dim)] uppercase font-semibold">
                   Navigation
                 </span>
-                <Link
-                  href="/dashboard"
-                  className="text-xs font-mono text-[var(--color-atelier-brass)] hover:underline flex items-center gap-1"
-                >
-                  <span>Go to Overview</span>
-                  <ArrowLeft className="w-3 h-3 rotate-180" />
-                </Link>
+                <div className="flex items-center gap-4">
+                  <Link
+                    href="/dashboard/documents"
+                    className="text-xs font-mono text-[var(--color-atelier-brass)] hover:underline flex items-center gap-1"
+                  >
+                    <span>All Documents</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/chat"
+                    className="text-xs font-mono text-[var(--color-atelier-brass)] hover:underline flex items-center gap-1"
+                  >
+                    <span>Chat</span>
+                    <MessageSquare className="w-3 h-3" />
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    className="text-xs font-mono text-[var(--color-ink-muted)] hover:underline flex items-center gap-1"
+                  >
+                    <span>Overview</span>
+                    <ArrowLeft className="w-3 h-3 rotate-180" />
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

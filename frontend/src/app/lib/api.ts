@@ -119,3 +119,124 @@ export async function apiUploadDocument(
     xhr.send(formData);
   });
 }
+
+export async function apiGetDocuments(
+  token: string
+): Promise<DocumentUploadResponse[]> {
+  const res = await fetch(`${BACKEND_URL}/ingestion/documents`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch documents: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiGetDocumentById(
+  documentId: string,
+  token: string
+): Promise<DocumentUploadResponse> {
+  const res = await fetch(`${BACKEND_URL}/ingestion/documents/${documentId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch document ${documentId}: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiDeleteDocument(
+  documentId: string,
+  token: string
+): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/ingestion/documents/${documentId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok && res.status !== 204) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to delete document: ${res.status}`);
+  }
+}
+
+export interface SourceChunk {
+  content: string;
+  score?: number | null;
+  metadata?: Record<string, any>;
+}
+
+export interface RAGQueryRequest {
+  query: string;
+  document_id?: string | null;
+  document_ids?: string[] | null;
+  use_multi_query?: boolean;
+  top_k?: number;
+}
+
+export interface RAGQueryResponse {
+  query: string;
+  answer: string;
+  sources: SourceChunk[];
+}
+
+export interface RAGSearchRequest {
+  query: string;
+  document_id?: string | null;
+  document_ids?: string[] | null;
+  top_k?: number;
+}
+
+export interface RAGSearchResponse {
+  query: string;
+  total_results: number;
+  results: SourceChunk[];
+}
+
+export async function apiRAGQuery(
+  request: RAGQueryRequest,
+  token: string
+): Promise<RAGQueryResponse> {
+  const res = await fetch(`${BACKEND_URL}/rag/query`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `RAG query failed with status ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiRAGSearch(
+  request: RAGSearchRequest,
+  token: string
+): Promise<RAGSearchResponse> {
+  const res = await fetch(`${BACKEND_URL}/rag/search`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `RAG search failed with status ${res.status}`);
+  }
+
+  return res.json();
+}

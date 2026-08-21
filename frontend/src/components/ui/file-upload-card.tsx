@@ -8,11 +8,10 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-// Define the structure for a file being uploaded
 export interface UploadedFile {
   id: string;
   file: File;
-  progress: number; // 0-100
+  progress: number;
   status: "uploading" | "completed" | "error";
   errorMessage?: string;
   totalPages?: number;
@@ -53,27 +52,23 @@ export const FileUploadCard = React.forwardRef<HTMLDivElement, FileUploadCardPro
     const [isDragging, setIsDragging] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    // Handler for drag enter event
     const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(true);
     };
 
-    // Handler for drag leave event
     const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
     };
 
-    // Handler for drag over event
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
     };
 
-    // Handler for drop event
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
@@ -84,22 +79,18 @@ export const FileUploadCard = React.forwardRef<HTMLDivElement, FileUploadCardPro
       }
     };
 
-    // Handler for file input change
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
       const selectedFiles = Array.from(e.target.files || []);
       if (selectedFiles.length > 0) {
         onFilesChange(selectedFiles);
       }
-      // Reset input value so same file can be selected again if needed
       if (e.target) {
         e.target.value = "";
       }
     };
 
-    // Trigger file input click
     const triggerFileSelect = () => fileInputRef.current?.click();
 
-    // Format file size for display
     const formatFileSize = (bytes: number) => {
       if (bytes === 0) return "0 KB";
       const k = 1024;
@@ -108,7 +99,6 @@ export const FileUploadCard = React.forwardRef<HTMLDivElement, FileUploadCardPro
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
     };
 
-    // Extract file extension for badge
     const getFileExt = (filename: string, mimeType: string) => {
       const ext = filename.split(".").pop();
       if (ext && ext.length <= 4) return ext.toUpperCase();
@@ -116,7 +106,6 @@ export const FileUploadCard = React.forwardRef<HTMLDivElement, FileUploadCardPro
       return (mimeExt || "DOC").substring(0, 4).toUpperCase();
     };
 
-    // Animation variants for Framer Motion
     const cardVariants = {
       hidden: { opacity: 0, y: 20 },
       visible: { opacity: 1, y: 0 },

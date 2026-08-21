@@ -4,7 +4,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { UploadCloud } from "lucide-react";
+import { UploadCloud, Sparkles, MessageSquare, Search } from "lucide-react";
 
 function AdminPanel() {
   return (
@@ -75,21 +75,21 @@ function AdminPanel() {
         Administrator Actions
       </div>
       <div className="atelier-actions-grid">
+        <Link href="/dashboard/chat" className="atelier-action-btn border-[var(--color-atelier-brass)]/50 text-[var(--color-atelier-brass)]">
+          <MessageSquare className="w-4 h-4" />
+          <span>Chat</span>
+        </Link>
+        <Link href="/dashboard/documents" className="atelier-action-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
+          <span>All Documents</span>
+        </Link>
         <Link href="/dashboard/upload" className="atelier-action-btn">
           <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" />
-          <span>Upload Documents</span>
+          <span>Upload Docs</span>
         </Link>
-        <button className="atelier-action-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 00-1-1.73L12 2 4 6.27A2 2 0 003 8v8a2 2 0 001 1.73L12 22l8-4.27A2 2 0 0021 16z" /></svg>
-          <span>Sync Embeddings</span>
-        </button>
         <button className="atelier-action-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>
           <span>Re-rank Settings</span>
-        </button>
-        <button className="atelier-action-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10M18 20V4M6 20v-4" /></svg>
-          <span>Activity Logs</span>
         </button>
       </div>
     </div>
@@ -168,21 +168,21 @@ function StaffPanel() {
         Document Operations
       </div>
       <div className="atelier-actions-grid">
+        <Link href="/dashboard/chat" className="atelier-action-btn border-[var(--color-terminal-green)]/50 text-[var(--color-terminal-green)]">
+          <MessageSquare className="w-4 h-4" />
+          <span>Test Retrieval</span>
+        </Link>
+        <Link href="/dashboard/documents" className="atelier-action-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
+          <span>All Documents</span>
+        </Link>
         <Link href="/dashboard/upload" className="atelier-action-btn">
           <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" />
-          <span>Upload Documents</span>
+          <span>Upload Docs</span>
         </Link>
         <button className="atelier-action-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
-          <span>Review Chunks</span>
-        </button>
-        <button className="atelier-action-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-          <span>Test Re-ranking</span>
-        </button>
-        <button className="atelier-action-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
-          <span>Sync Knowledge Base</span>
+          <span>Sync Knowledge</span>
         </button>
       </div>
     </div>
@@ -258,22 +258,22 @@ function UserPanel() {
         Search &amp; Knowledge Actions
       </div>
       <div className="atelier-actions-grid">
+        <Link href="/dashboard/chat" className="atelier-action-btn border-[var(--color-terminal-cyan)]/50 text-[var(--color-terminal-cyan)]">
+          <MessageSquare className="w-4 h-4" />
+          <span>Ask Assistant</span>
+        </Link>
+        <Link href="/dashboard/documents" className="atelier-action-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
+          <span>Browse Documents</span>
+        </Link>
         <Link href="/dashboard/upload" className="atelier-action-btn">
           <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" />
           <span>Upload Document</span>
         </Link>
-        <button className="atelier-action-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-          <span>New Search</span>
-        </button>
-        <button className="atelier-action-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-          <span>Search History</span>
-        </button>
-        <button className="atelier-action-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
-          <span>Saved Sources</span>
-        </button>
+        <Link href="/dashboard/chat" className="atelier-action-btn">
+          <Search className="w-4 h-4 text-[var(--color-atelier-brass)]" />
+          <span>New RAG Search</span>
+        </Link>
       </div>
     </div>
   );
@@ -321,6 +321,21 @@ function DashboardContent() {
         </Link>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/documents"
+            className="atelier-btn atelier-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5"
+          >
+            <span>Documents</span>
+          </Link>
+
+          <Link
+            href="/dashboard/chat"
+            className="atelier-btn atelier-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 border-[var(--color-atelier-brass)]/40 text-[var(--color-atelier-brass)]"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>Chat</span>
+          </Link>
+
           <Link
             href="/dashboard/upload"
             className="atelier-btn atelier-btn-primary !py-1.5 !px-3 text-xs flex items-center gap-1.5"
