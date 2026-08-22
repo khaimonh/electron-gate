@@ -304,6 +304,15 @@ export interface VisualSearchResultItem {
   similarity_score: number;
 }
 
+export interface ProductImageRead {
+  image_id: string;
+  product_id: string;
+  variant_id?: string | null;
+  image_url: string;
+  is_primary: boolean;
+  created_at?: string | null;
+}
+
 export interface CartItemBrief {
   variant_id: string;
   quantity: number;
@@ -460,6 +469,47 @@ export async function apiUploadProductImage(
   if (!res.ok) {
     const errorData = await res.json().catch(() => null);
     throw new Error(errorData?.detail || `Failed to upload image: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiGetProductImages(
+  productId: string,
+  token?: string | null
+): Promise<ProductImageRead[]> {
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BACKEND_URL}/products/${productId}/images`, { headers });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch product images: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiAddToCart(
+  cartId: string,
+  variantId: string,
+  quantity: number = 1,
+  token: string
+): Promise<CartItemBrief> {
+  const res = await fetch(`${BACKEND_URL}/carts/${cartId}/items`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      variant_id: variantId,
+      quantity,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to add item to cart: ${res.status}`);
   }
 
   return res.json();
