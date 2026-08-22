@@ -961,64 +961,130 @@ export default function ProductsPage() {
               </button>
             </div>
 
-            {/* Upload Box */}
+            {/* Upload / Drag-and-Drop Box */}
             <div className="mb-4">
-              <label
-                htmlFor="visual-upload-input"
-                className="border-2 border-dashed border-[var(--color-rule)] hover:border-[var(--color-terminal-cyan)] rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors bg-[var(--color-paper-terminal)]"
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(true);
+                }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) performVisualSearch(file);
+                }}
+                className={`border-2 border-dashed rounded-lg p-5 flex flex-col items-center justify-center transition-all bg-[var(--color-paper-terminal)] relative ${
+                  isDragOver
+                    ? "border-[var(--color-terminal-cyan)] bg-[var(--color-terminal-cyan)]/5 scale-[1.01]"
+                    : "border-[var(--color-rule)] hover:border-[var(--color-terminal-cyan)]/80"
+                }`}
               >
                 {previewImage ? (
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={previewImage}
-                      alt="Uploaded Query"
-                      className="w-20 h-20 object-cover rounded border border-[var(--color-rule)]"
-                    />
-                    <div className="text-left font-mono text-xs">
-                      <div className="text-[var(--color-terminal-green)] flex items-center gap-1 mb-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Image Embedded
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
+                    <div className="flex items-center gap-3.5">
+                      <img
+                        src={previewImage}
+                        alt="Query Target"
+                        className="w-16 h-16 object-cover rounded border border-[var(--color-rule)]"
+                      />
+                      <div className="text-left font-mono text-xs">
+                        <div className="text-[var(--color-terminal-green)] flex items-center gap-1 font-semibold mb-0.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Target Image Analyzed
+                        </div>
+                        <div className="text-[10px] text-[var(--color-ink-muted)] truncate max-w-[200px] sm:max-w-xs">
+                          {activeSearchFile?.name || "Uploaded image"}
+                        </div>
+                        {activeSearchFile?.size && (
+                          <div className="text-[9px] text-[var(--color-ink-dim)]">
+                            {(activeSearchFile.size / 1024).toFixed(1)} KB
+                          </div>
+                        )}
                       </div>
-                      <div className="text-[var(--color-ink-muted)] text-[10px]">
-                        Click to replace search target image
-                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <label
+                        htmlFor="visual-upload-input"
+                        className="atelier-btn atelier-btn-ghost !py-1.5 !px-3 text-xs font-mono cursor-pointer border border-[var(--color-rule)] hover:border-[var(--color-terminal-cyan)]"
+                      >
+                        Replace Image
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleClearVisualSearch}
+                        className="p-1.5 rounded text-[var(--color-ink-dim)] hover:text-[var(--color-restricted-red)] border border-transparent hover:border-[var(--color-restricted-red)]/30 transition-colors"
+                        title="Clear target image"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <Upload className="w-8 h-8 text-[var(--color-terminal-cyan)] mb-2 animate-bounce" />
+                  <label
+                    htmlFor="visual-upload-input"
+                    className="w-full flex flex-col items-center justify-center cursor-pointer text-center py-2"
+                  >
+                    <Upload
+                      className={`w-7 h-7 text-[var(--color-terminal-cyan)] mb-2 transition-transform ${
+                        isDragOver ? "scale-125 animate-bounce" : ""
+                      }`}
+                    />
                     <span className="font-mono text-xs text-[var(--color-ink)] font-semibold mb-1">
-                      Upload or Drop Product Image
+                      Drag &amp; drop an image here, or click to browse
                     </span>
                     <span className="font-mono text-[10px] text-[var(--color-ink-dim)]">
-                      Supports JPG, PNG, WEBP (Auto-extracts 512d CLIP vectors)
+                      Supports JPG, PNG, WEBP, SVG · Up to 10MB
                     </span>
-                  </>
+                  </label>
                 )}
                 <input
                   id="visual-upload-input"
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,image/avif"
                   onChange={handleImageUpload}
                   className="hidden"
                 />
-              </label>
+              </div>
             </div>
 
-            {/* Visual Search Results */}
-            <div className="flex-1 overflow-y-auto pr-1 space-y-3 min-h-[140px]">
-              {isSearchingVisual ? (
-                <div className="py-12 flex flex-col items-center justify-center text-center font-mono text-xs text-[var(--color-ink-muted)]">
-                  <RefreshCw className="w-6 h-6 animate-spin text-[var(--color-terminal-cyan)] mb-2" />
-                  <span>Computing cosine distance across product vector space...</span>
+            {/* Error Banner with Retry */}
+            {visualSearchError && (
+              <div className="mb-4 p-3 bg-[var(--color-restricted-red)]/10 border border-[var(--color-restricted-red)]/40 text-[var(--color-restricted-red)] text-xs font-mono rounded flex items-center justify-between animate-fade-in">
+                <div className="flex items-center gap-2 pr-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{visualSearchError}</span>
                 </div>
-              ) : visualSearchError ? (
-                <div className="p-3 bg-[var(--color-restricted-red)]/10 border border-[var(--color-restricted-red)]/40 text-[var(--color-restricted-red)] text-xs font-mono rounded">
-                  {visualSearchError}
+                {activeSearchFile && (
+                  <button
+                    type="button"
+                    onClick={() => performVisualSearch(activeSearchFile)}
+                    className="underline hover:text-[var(--color-ink)] font-bold whitespace-nowrap ml-2"
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Visual Search Results */}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-3 min-h-[160px]">
+              {isSearchingVisual ? (
+                <div className="py-12 flex flex-col items-center justify-center text-center font-mono text-xs text-[var(--color-ink-muted)] space-y-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-[var(--color-terminal-cyan)]" />
+                  <span className="text-[var(--color-ink)] font-semibold">
+                    Searching Neural Vector Space...
+                  </span>
+                  <span className="text-[10px] text-[var(--color-ink-dim)]">
+                    Comparing cosine distance across pgvector embeddings
+                  </span>
                 </div>
               ) : visualSearchResults.length > 0 ? (
                 <div className="space-y-2">
-                  <div className="font-mono text-[10px] text-[var(--color-ink-dim)] uppercase tracking-wider">
-                    Matched Products ({visualSearchResults.length})
+                  <div className="flex items-center justify-between font-mono text-[10px] text-[var(--color-ink-dim)] uppercase tracking-wider pb-1 border-b border-[var(--color-rule-subtle)]">
+                    <span>Ranked Results ({visualSearchResults.length})</span>
+                    <span>Sorted by Cosine Similarity</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {visualSearchResults.map((res) => (
@@ -1026,14 +1092,14 @@ export default function ProductsPage() {
                         key={res.matched_image_id}
                         href={`/products/${res.product_id}`}
                         onClick={() => setIsVisualSearchOpen(false)}
-                        className="p-3 rounded border border-[var(--color-rule)] bg-[var(--color-paper-sub)] hover:border-[var(--color-terminal-cyan)] transition-all flex items-center gap-3 group"
+                        className="p-3 rounded border border-[var(--color-rule)] bg-[var(--color-paper-sub)] hover:border-[var(--color-terminal-cyan)] hover:bg-[var(--color-paper-hover)] transition-all flex items-center gap-3 group"
                       >
                         <div className="w-14 h-14 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] overflow-hidden shrink-0">
                           {res.matched_image_url ? (
                             <img
                               src={res.matched_image_url}
                               alt={res.product_name}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                             />
                           ) : (
                             <Cpu className="w-full h-full p-3 text-[var(--color-ink-dim)]" />
@@ -1056,19 +1122,50 @@ export default function ProductsPage() {
                     ))}
                   </div>
                 </div>
-              ) : previewImage ? (
-                <div className="py-8 text-center font-mono text-xs text-[var(--color-ink-dim)]">
-                  No visual matches found above similarity threshold.
+              ) : previewImage && !visualSearchError ? (
+                <div className="py-10 flex flex-col items-center justify-center text-center font-mono text-xs text-[var(--color-ink-muted)] space-y-3">
+                  <Boxes className="w-8 h-8 text-[var(--color-ink-dim)] opacity-50" />
+                  <div>
+                    <div className="text-[var(--color-ink)] font-semibold mb-1">
+                      No Visual Matches in Current Index
+                    </div>
+                    <p className="text-[10px] text-[var(--color-ink-dim)] max-w-xs">
+                      No indexed products matched this image above the similarity threshold.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleClearVisualSearch}
+                      className="atelier-btn atelier-btn-ghost !py-1 !px-3 text-xs"
+                    >
+                      Try Another Image
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsVisualSearchOpen(false);
+                        handleResetFilters();
+                      }}
+                      className="atelier-btn atelier-btn-primary !py-1 !px-3 text-xs"
+                    >
+                      Browse Catalog
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <div className="py-8 text-center font-mono text-xs text-[var(--color-ink-dim)]">
-                  Upload an image above to find matching products in our neural index.
+                <div className="py-10 flex flex-col items-center justify-center text-center font-mono text-xs text-[var(--color-ink-dim)] space-y-2">
+                  <Camera className="w-8 h-8 opacity-30 text-[var(--color-terminal-cyan)]" />
+                  <p>Upload a product image above to find matching units in our neural index.</p>
                 </div>
               )}
             </div>
 
             {/* Footer */}
-            <div className="pt-3 mt-4 border-t border-[var(--color-rule)] flex justify-end">
+            <div className="pt-3 mt-4 border-t border-[var(--color-rule)] flex items-center justify-between">
+              <span className="font-mono text-[10px] text-[var(--color-ink-dim)]">
+                Powered by 512-dim Cosine Distance
+              </span>
               <button
                 onClick={() => setIsVisualSearchOpen(false)}
                 className="atelier-btn atelier-btn-ghost !py-1.5 !px-4 text-xs font-mono"
