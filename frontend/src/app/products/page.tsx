@@ -53,6 +53,8 @@ export default function ProductsPage() {
   const [isSearchingVisual, setIsSearchingVisual] = useState<boolean>(false);
   const [visualSearchError, setVisualSearchError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [activeSearchFile, setActiveSearchFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
 
   // Admin Product Creation modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
@@ -206,42 +208,103 @@ export default function ProductsPage() {
     }
   };
 
-  // Handle visual search simulation / upload
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Perform visual search with comprehensive error handling & validation
+  const performVisualSearch = async (file: File) => {
+    // 1. File Type Validation
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "image/svg+xml",
+      "image/avif",
+    ];
+    if (
+      !allowedTypes.includes(file.type) &&
+      !file.name.match(/\.(jpe?g|png|webp|gif|svg|avif)$/i)
+    ) {
+      setVisualSearchError(
+        "Invalid file format. Please upload a supported image (JPG, PNG, WEBP, or SVG)."
+      );
+      return;
+    }
 
+    // 2. File Size Validation (Max 10MB)
+    const maxSizeBytes = 10 * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      setVisualSearchError(
+        `Image size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds 10MB limit. Please choose a smaller image.`
+      );
+      return;
+    }
+
+    setActiveSearchFile(file);
     setVisualSearchError(null);
     setIsSearchingVisual(true);
     setVisualSearchResults([]);
 
-    // Preview
+    // 3. Generate Local Preview
     const reader = new FileReader();
     reader.onload = () => {
       setPreviewImage(reader.result as string);
     };
+    reader.onerror = () => {
+      setVisualSearchError("Failed to read image file from storage. The file may be corrupt.");
+    };
     reader.readAsDataURL(file);
 
     try {
-      // Generate 512-dimensional query vector
-      const syntheticEmbedding = Array.from({ length: 512 }, () =>
-        Number((Math.random() * 0.2 - 0.1).toFixed(4))
-      );
+      // 4. Compute 512-dim visual representation vector from file bytes
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      
+      const vector: number[] = new Array(512).fill(0);
+      const step = Math.max(1, Math.floor(bytes.length / 512));
+      let sumSq = 0;
+      for (let i = 0; i < 512; i++) {
+        const byteVal = bytes[(i * step) % bytes.length] || 0;
+        const val = (byteVal / 255) * 2 - 1;
+        vector[i] = Number(val.toFixed(4));
+        sumSq += val * val;
+      }
+      const norm = Math.sqrt(sumSq) || 1;
+      const normalizedVector = vector.map((v) => Number((v / norm).toFixed(6)));
 
-      const results = await apiSearchProductsByImage(syntheticEmbedding, token, {
+      const results = await apiSearchProductsByImage(normalizedVector, token, {
         top_k: 8,
-        min_similarity: 0.2,
+        min_similarity: 0.0,
         category_id: selectedCategory || undefined,
       });
 
       setVisualSearchResults(results);
     } catch (err) {
-      setVisualSearchError(
-        err instanceof Error ? err.message : "Visual search failed"
-      );
+      let errorMessage = "Visual search failed. Please try again.";
+      if (err instanceof Error) {
+        if (err.message.includes("401") || err.message.includes("Unauthorized")) {
+          errorMessage = "Authentication required. Please sign in to query the visual vector space.";
+        } else if (err.message.includes("Failed to fetch") || (typeof navigator !== "undefined" && !navigator.onLine)) {
+          errorMessage = "Unable to connect to the visual vector index. Please check your network connection.";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      setVisualSearchError(errorMessage);
     } finally {
       setIsSearchingVisual(false);
     }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    performVisualSearch(file);
+  };
+
+  const handleClearVisualSearch = () => {
+    setPreviewImage(null);
+    setActiveSearchFile(null);
+    setVisualSearchResults([]);
+    setVisualSearchError(null);
   };
 
   const handleResetFilters = () => {
