@@ -19,11 +19,7 @@ export default function SignUpPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      if (user.role === "Admin") {
-        router.replace("/admin");
-      } else {
-        router.replace("/");
-      }
+      router.replace("/");
     }
   }, [user, isLoading, router]);
 
