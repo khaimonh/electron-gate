@@ -545,3 +545,59 @@ export async function apiCreateVariant(
 
   return res.json();
 }
+
+export interface VariantUpdatePayload {
+  model?: string | null;
+  color?: string | null;
+  storage?: string | null;
+  price?: number | null;
+  status?: string | null;
+  image_url?: string | null;
+}
+
+export async function apiUpdateVariant(
+  productId: string,
+  variantId: string,
+  payload: VariantUpdatePayload,
+  token: string
+): Promise<VariantBrief> {
+  const res = await fetch(
+    `${BACKEND_URL}/products/${productId}/variants/${variantId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to update variant: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiDeleteVariant(
+  productId: string,
+  variantId: string,
+  token: string
+): Promise<void> {
+  const res = await fetch(
+    `${BACKEND_URL}/products/${productId}/variants/${variantId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok && res.status !== 204) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to delete variant: ${res.status}`);
+  }
+}
