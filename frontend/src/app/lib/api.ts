@@ -647,3 +647,183 @@ export async function apiDeleteVariant(
     throw new Error(errorData?.detail || `Failed to delete variant: ${res.status}`);
   }
 }
+
+// ── Checkout & Address Types ──────────────────────────────────────────────────
+
+export interface AddressRead {
+  address_id: string;
+  user_id: string;
+  address_line: string;
+  city_id: string;
+  is_default: boolean;
+  city_name?: string | null;
+  postal_code?: string | null;
+  country_name?: string | null;
+}
+
+export interface AddressCreatePayload {
+  address_line: string;
+  city_id: string;
+  is_default?: boolean;
+}
+
+export interface CountryRead {
+  country_id: string;
+  country_name: string;
+}
+
+export interface CityRead {
+  city_id: string;
+  city_name: string;
+  postal_code?: string | null;
+  country_id: string;
+  country_name?: string | null;
+}
+
+export interface OrderItemBrief {
+  order_item_id: string;
+  variant_id: string;
+  quantity: number;
+  unit_price: number;
+  product_name?: string | null;
+  variant_model?: string | null;
+  variant_color?: string | null;
+  variant_storage?: string | null;
+}
+
+export interface OrderHistoryBrief {
+  or_his_id: string;
+  address_line: string;
+  recipient_name: string;
+  country_name: string;
+  city_name: string;
+  phone: string;
+}
+
+export interface OrderRead {
+  order_id: string;
+  user_id: string;
+  shipping_address_id: string;
+  order_number: string;
+  order_status: string;
+  subtotal: number;
+  shipping_fee: number;
+  discount_amount: number;
+  created_at?: string | null;
+  items: OrderItemBrief[];
+  histories: OrderHistoryBrief[];
+}
+
+export interface PaymentRead {
+  payment_id: string;
+  order_id: string;
+  amount: number;
+  payment_method: string;
+  payment_status: string;
+  created_at?: string | null;
+}
+
+// ── Checkout & Address APIs ───────────────────────────────────────────────────
+
+export async function apiGetMyAddresses(token: string): Promise<AddressRead[]> {
+  const res = await fetch(`${BACKEND_URL}/addresses/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch addresses: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiCreateAddress(
+  payload: AddressCreatePayload,
+  token: string
+): Promise<AddressRead> {
+  const res = await fetch(`${BACKEND_URL}/addresses`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to create address: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetCountries(token: string): Promise<CountryRead[]> {
+  const res = await fetch(`${BACKEND_URL}/countries`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch countries: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetCities(
+  countryId: string,
+  token: string
+): Promise<CityRead[]> {
+  const res = await fetch(`${BACKEND_URL}/countries/${countryId}/cities`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch cities: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiCheckout(
+  shippingAddressId: string,
+  token: string
+): Promise<OrderRead> {
+  const res = await fetch(`${BACKEND_URL}/orders/checkout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ shipping_address_id: shippingAddressId }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Checkout failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetOrderById(
+  orderId: string,
+  token: string
+): Promise<OrderRead> {
+  const res = await fetch(`${BACKEND_URL}/orders/${orderId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch order: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetOrderPayment(
+  orderId: string,
+  token: string
+): Promise<PaymentRead | null> {
+  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/payment`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch payment: ${res.status}`);
+  }
+  return res.json();
+}
