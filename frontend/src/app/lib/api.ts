@@ -515,6 +515,52 @@ export async function apiAddToCart(
   return res.json();
 }
 
+export interface CartItemUpdatePayload {
+  quantity?: number;
+  is_selected?: boolean;
+}
+
+export async function apiUpdateCartItem(
+  cartId: string,
+  variantId: string,
+  payload: CartItemUpdatePayload,
+  token: string
+): Promise<CartItemBrief> {
+  const res = await fetch(`${BACKEND_URL}/carts/${cartId}/items/${variantId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to update cart item: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiDeleteCartItem(
+  cartId: string,
+  variantId: string,
+  token: string
+): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/carts/${cartId}/items/${variantId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok && res.status !== 204) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to remove cart item: ${res.status}`);
+  }
+}
+
 export interface VariantCreatePayload {
   model?: string | null;
   color?: string | null;
