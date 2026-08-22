@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
@@ -9,6 +9,8 @@ import {
   apiGetProductImages,
   apiGetMyCart,
   apiAddToCart,
+  apiCreateVariant,
+  apiUploadProductImage,
   type ProductRead,
   type ProductImageRead,
   type VariantBrief,
@@ -29,7 +31,9 @@ import {
   Minus,
   Plus,
   LogOut,
-  Sparkles,
+  X,
+  Upload,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function ProductDetailPage() {
@@ -54,6 +58,22 @@ export default function ProductDetailPage() {
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
   const [addToCartSuccess, setAddToCartSuccess] = useState<boolean>(false);
   const [cartError, setCartError] = useState<string | null>(null);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+
+  // Admin Create Variant Modal states
+  const [isCreateVariantOpen, setIsCreateVariantOpen] = useState<boolean>(false);
+  const [variantModel, setVariantModel] = useState<string>("");
+  const [variantColor, setVariantColor] = useState<string>("");
+  const [variantStorage, setVariantStorage] = useState<string>("");
+  const [variantPrice, setVariantPrice] = useState<string>("");
+  const [variantStatus, setVariantStatus] = useState<string>("active");
+  const [variantImageUrl, setVariantImageUrl] = useState<string>("");
+  const [isCreatingVariant, setIsCreatingVariant] = useState<boolean>(false);
+  const [createVariantError, setCreateVariantError] = useState<string | null>(null);
+  const [isUploadingVariantImg, setIsUploadingVariantImg] = useState<boolean>(false);
+  const [uploadVariantImgError, setUploadVariantImgError] = useState<string | null>(null);
+
+  const isAdmin = user?.role === "Admin";
 
   // Load Product and Gallery Images
   const loadProductData = useCallback(async () => {
@@ -134,6 +154,81 @@ export default function ProductDetailPage() {
       if (variantGalleryImg) {
         setSelectedImage(variantGalleryImg.image_url);
       }
+    }
+  };
+
+  // Handle direct image file upload for new variant
+  const handleVariantFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !token) return;
+
+    setIsUploadingVariantImg(true);
+    setUploadVariantImgError(null);
+
+    try {
+      const res = await apiUploadProductImage(file, token);
+      setVariantImageUrl(res.image_url);
+    } catch (err) {
+      setUploadVariantImgError(
+        err instanceof Error ? err.message : "Failed to upload image"
+      );
+    } finally {
+      setIsUploadingVariantImg(false);
+    }
+  };
+
+  // Handle Admin Variant Creation Submit
+  const handleCreateVariantSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!token) {
+      setCreateVariantError("Admin authorization required.");
+      return;
+    }
+
+    const numPrice = parseFloat(variantPrice);
+    if (isNaN(numPrice) || numPrice < 0) {
+      setCreateVariantError("Please specify a valid numeric price.");
+      return;
+    }
+
+    setIsCreatingVariant(true);
+    setCreateVariantError(null);
+
+    try {
+      const newVar = await apiCreateVariant(
+        productId,
+        {
+          model: variantModel.trim() || null,
+          color: variantColor.trim() || null,
+          storage: variantStorage.trim() || null,
+          price: numPrice,
+          status: variantStatus,
+          image_url: variantImageUrl.trim() || null,
+        },
+        token
+      );
+
+      // Reset form & close modal
+      setVariantModel("");
+      setVariantColor("");
+      setVariantStorage("");
+      setVariantPrice("");
+      setVariantStatus("active");
+      setVariantImageUrl("");
+      setIsCreateVariantOpen(false);
+
+      // Show banner & refresh
+      setSuccessBanner(`Variant "${newVar.model || "SKU"}" created successfully.`);
+      setTimeout(() => setSuccessBanner(null), 4000);
+
+      await loadProductData();
+      setSelectedVariantId(newVar.variant_id);
+    } catch (err) {
+      setCreateVariantError(
+        err instanceof Error ? err.message : "Failed to create variant."
+      );
+    } finally {
+      setIsCreatingVariant(false);
     }
   };
 
@@ -271,6 +366,17 @@ export default function ProductDetailPage() {
 
           {/* Right Action Tools */}
           <div className="flex items-center gap-3">
+            {/* Admin Add Variant Action */}
+            {isAdmin && (
+              <button
+                onClick={() => setIsCreateVariantOpen(true)}
+                className="atelier-btn atelier-btn-primary !py-1.5 !px-3 text-xs flex items-center gap-1.5 font-mono shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">ADD VARIANT</span>
+              </button>
+            )}
+
             {/* Cart Button */}
             <Link
               href="/cart"
@@ -326,27 +432,55 @@ export default function ProductDetailPage() {
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 flex flex-col">
         {/* Breadcrumb Navigation */}
-        <div className="flex items-center gap-2 mb-6 font-mono text-xs text-[var(--color-ink-dim)]">
-          <Link
-            href="/products"
-            className="inline-flex items-center gap-1 hover:text-[var(--color-atelier-brass)] transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Hardware Registry</span>
-          </Link>
-          <span>/</span>
-          {product?.categories?.[0] && (
-            <>
-              <span className="text-[var(--color-ink-muted)]">
-                {product.categories[0].name}
-              </span>
-              <span>/</span>
-            </>
+        <div className="flex items-center justify-between gap-2 mb-6">
+          <div className="flex items-center gap-2 font-mono text-xs text-[var(--color-ink-dim)]">
+            <Link
+              href="/products"
+              className="inline-flex items-center gap-1 hover:text-[var(--color-atelier-brass)] transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Hardware Registry</span>
+            </Link>
+            <span>/</span>
+            {product?.categories?.[0] && (
+              <>
+                <span className="text-[var(--color-ink-muted)]">
+                  {product.categories[0].name}
+                </span>
+                <span>/</span>
+              </>
+            )}
+            <span className="text-[var(--color-ink)] font-semibold truncate max-w-[180px] sm:max-w-md">
+              {product?.name || "Loading..."}
+            </span>
+          </div>
+
+          {isAdmin && (
+            <button
+              onClick={() => setIsCreateVariantOpen(true)}
+              className="atelier-btn atelier-btn-ghost !py-1 !px-2.5 text-xs font-mono flex items-center gap-1 border border-[var(--color-atelier-brass)] text-[var(--color-atelier-brass)]"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Variant</span>
+            </button>
           )}
-          <span className="text-[var(--color-ink)] font-semibold truncate max-w-[200px] sm:max-w-md">
-            {product?.name || "Loading..."}
-          </span>
         </div>
+
+        {/* Success Alert Banner */}
+        {successBanner && (
+          <div className="mb-6 p-4 rounded border border-[var(--color-terminal-green)]/40 bg-[var(--color-terminal-green)]/10 text-xs font-mono text-[var(--color-terminal-green)] flex items-center justify-between animate-fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{successBanner}</span>
+            </div>
+            <button
+              onClick={() => setSuccessBanner(null)}
+              className="text-[var(--color-ink-dim)] hover:text-[var(--color-ink)] ml-4"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Loading State */}
         {isLoading ? (
@@ -479,7 +613,7 @@ export default function ProductDetailPage() {
                       <div className="text-2xl sm:text-3xl font-bold text-[var(--color-atelier-brass)]">
                         {selectedVariant
                           ? `$${Number(selectedVariant.price).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-                          : "Select Variant"}
+                          : "No Active Variants"}
                       </div>
                     </div>
 
@@ -499,17 +633,24 @@ export default function ProductDetailPage() {
                   </div>
 
                   {/* Variant Selection (Model / Color / Storage) */}
-                  {product.variants && product.variants.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <label className="font-mono text-xs text-[var(--color-ink)] font-semibold uppercase tracking-wider">
-                          Hardware Configurations ({product.variants.length})
-                        </label>
-                        <span className="font-mono text-[10px] text-[var(--color-ink-dim)]">
-                          Section 2.2 Active Variants
-                        </span>
-                      </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="font-mono text-xs text-[var(--color-ink)] font-semibold uppercase tracking-wider">
+                        Hardware Configurations ({product.variants?.length || 0})
+                      </label>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => setIsCreateVariantOpen(true)}
+                          className="font-mono text-[11px] text-[var(--color-atelier-brass)] hover:underline flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add Variant</span>
+                        </button>
+                      )}
+                    </div>
 
+                    {product.variants && product.variants.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         {product.variants.map((v) => {
                           const isSelected = v.variant_id === selectedVariantId;
@@ -550,8 +691,24 @@ export default function ProductDetailPage() {
                           );
                         })}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="p-4 rounded-lg border border-[var(--color-rule)] bg-[var(--color-paper-sub)] font-mono text-xs text-[var(--color-ink-dim)] text-center">
+                        No hardware variants configured for this product yet.
+                        {isAdmin && (
+                          <div className="mt-2">
+                            <button
+                              type="button"
+                              onClick={() => setIsCreateVariantOpen(true)}
+                              className="atelier-btn atelier-btn-primary !py-1 !px-3 text-xs font-mono inline-flex items-center gap-1"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Create First Variant</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Quantity & Add to Cart Controls */}
                   <div className="space-y-4 pt-2">
@@ -694,6 +851,240 @@ export default function ProductDetailPage() {
           </div>
         )}
       </main>
+
+      {/* Admin Create Variant Modal */}
+      {isCreateVariantOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="atelier-plate relative w-full max-w-xl bg-[var(--color-paper-card)] border border-[var(--color-atelier-brass)] rounded-lg shadow-2xl p-6 overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-[var(--color-rule)]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-atelier-brass)] text-[var(--color-atelier-brass)]">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-fraunces font-bold text-lg text-[var(--color-ink)]">
+                    Create Hardware Variant (SKU)
+                  </h3>
+                  <p className="font-mono text-[10px] text-[var(--color-ink-muted)]">
+                    ADMIN PRIVILEGE // POST /products/{productId.slice(0, 8)}.../variants
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCreateVariantOpen(false)}
+                className="p-1.5 text-[var(--color-ink-dim)] hover:text-[var(--color-ink)] rounded hover:bg-[var(--color-paper-sub)] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Error Banner */}
+            {createVariantError && (
+              <div className="mb-4 p-3 bg-[var(--color-restricted-red)]/10 border border-[var(--color-restricted-red)]/40 text-[var(--color-restricted-red)] text-xs font-mono rounded flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{createVariantError}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleCreateVariantSubmit} className="space-y-4 flex-1 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Model */}
+                <div>
+                  <label className="block text-xs font-mono text-[var(--color-ink)] mb-1">
+                    Model Edition
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Pro Max, Developer Edition"
+                    value={variantModel}
+                    onChange={(e) => setVariantModel(e.target.value)}
+                    className="w-full bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Color / Finish */}
+                <div>
+                  <label className="block text-xs font-mono text-[var(--color-ink)] mb-1">
+                    Color / Finish
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Natural Titanium, Space Black"
+                    value={variantColor}
+                    onChange={(e) => setVariantColor(e.target.value)}
+                    className="w-full bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Storage / Capacity */}
+                <div>
+                  <label className="block text-xs font-mono text-[var(--color-ink)] mb-1">
+                    Storage / Memory Spec
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 256GB, 1TB, 32GB Unified"
+                    value={variantStorage}
+                    onChange={(e) => setVariantStorage(e.target.value)}
+                    className="w-full bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"
+                  />
+                </div>
+
+                {/* Price */}
+                <div>
+                  <label className="block text-xs font-mono text-[var(--color-ink)] mb-1">
+                    <span>Base Unit Price ($ USD)</span> <span className="text-[var(--color-atelier-brass)]">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    placeholder="e.g. 1099.00"
+                    value={variantPrice}
+                    onChange={(e) => setVariantPrice(e.target.value)}
+                    className="w-full bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-xs font-mono text-[var(--color-ink)] mb-1">
+                  Availability Status
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 cursor-pointer font-mono text-xs">
+                    <input
+                      type="radio"
+                      name="variantStatus"
+                      value="active"
+                      checked={variantStatus === "active"}
+                      onChange={() => setVariantStatus("active")}
+                      className="accent-[var(--color-terminal-green)]"
+                    />
+                    <span className="text-[var(--color-terminal-green)] font-semibold">
+                      Active / In Stock
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-1.5 cursor-pointer font-mono text-xs">
+                    <input
+                      type="radio"
+                      name="variantStatus"
+                      value="inactive"
+                      checked={variantStatus === "inactive"}
+                      onChange={() => setVariantStatus("inactive")}
+                      className="accent-[var(--color-restricted-red)]"
+                    />
+                    <span className="text-[var(--color-ink-dim)]">
+                      Inactive / Out of Stock
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Variant Image */}
+              <div>
+                <label className="block text-xs font-mono text-[var(--color-ink)] mb-1.5 flex items-center justify-between">
+                  <span>Variant Image (Specific Finish/Angle)</span>
+                  <span className="text-[10px] text-[var(--color-ink-dim)]">Direct Upload or URL</span>
+                </label>
+
+                {uploadVariantImgError && (
+                  <div className="mb-2 p-2 bg-[var(--color-restricted-red)]/10 border border-[var(--color-restricted-red)]/40 text-[var(--color-restricted-red)] text-[11px] font-mono rounded">
+                    {uploadVariantImgError}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="variant-file-upload"
+                    className="border border-dashed border-[var(--color-rule)] hover:border-[var(--color-atelier-brass)] rounded p-2.5 flex items-center justify-between cursor-pointer transition-colors bg-[var(--color-paper-terminal)] group"
+                  >
+                    <div className="flex items-center gap-2">
+                      {isUploadingVariantImg ? (
+                        <RefreshCw className="w-4 h-4 text-[var(--color-atelier-brass)] animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4 text-[var(--color-atelier-brass)] group-hover:scale-110 transition-transform" />
+                      )}
+                      <span className="font-mono text-xs text-[var(--color-ink)]">
+                        {isUploadingVariantImg ? "Uploading image..." : "Upload Finish Photo"}
+                      </span>
+                    </div>
+                    {variantImageUrl && (
+                      <span className="text-[10px] font-mono text-[var(--color-terminal-green)] px-2 py-0.5 rounded bg-[var(--color-terminal-green)]/10 border border-[var(--color-terminal-green)]/30">
+                        Attached
+                      </span>
+                    )}
+                    <input
+                      id="variant-file-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleVariantFileUpload}
+                      disabled={isUploadingVariantImg}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Or paste image URL"
+                      value={variantImageUrl}
+                      onChange={(e) => setVariantImageUrl(e.target.value)}
+                      className="flex-1 bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"
+                    />
+                    {variantImageUrl && (
+                      <div className="w-8 h-8 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] overflow-hidden shrink-0">
+                        <img
+                          src={variantImageUrl}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-4 border-t border-[var(--color-rule)] flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateVariantOpen(false)}
+                  disabled={isCreatingVariant}
+                  className="atelier-btn atelier-btn-ghost !py-2 !px-4 text-xs font-mono"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingVariant}
+                  className="atelier-btn atelier-btn-primary !py-2 !px-5 text-xs font-mono flex items-center gap-2"
+                >
+                  {isCreatingVariant ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Creating Variant...</span>
+                    </>
+                  ) : (
+                    <span>Register Variant →</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Page Footer */}
       <footer className="mt-auto border-t border-[var(--color-rule)] py-6 bg-[var(--color-paper-terminal)]">

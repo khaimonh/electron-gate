@@ -514,3 +514,34 @@ export async function apiAddToCart(
 
   return res.json();
 }
+
+export interface VariantCreatePayload {
+  model?: string | null;
+  color?: string | null;
+  storage?: string | null;
+  price: number;
+  status?: string;
+  image_url?: string | null;
+}
+
+export async function apiCreateVariant(
+  productId: string,
+  payload: VariantCreatePayload,
+  token: string
+): Promise<VariantBrief> {
+  const res = await fetch(`${BACKEND_URL}/products/${productId}/variants`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to create variant: ${res.status}`);
+  }
+
+  return res.json();
+}
