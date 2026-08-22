@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type FormEvent } from "react";
 import Link from "next/link";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -8,6 +8,8 @@ import {
   apiGetCategories,
   apiGetMyCart,
   apiSearchProductsByImage,
+  apiCreateProduct,
+  apiUploadProductImage,
   type ProductListItem,
   type Category,
   type VisualSearchResultItem,
@@ -26,6 +28,8 @@ import {
   CheckCircle2,
   AlertCircle,
   LogOut,
+  Plus,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function ProductsPage() {
@@ -41,6 +45,7 @@ export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
   // Visual Search modal states
   const [isVisualSearchOpen, setIsVisualSearchOpen] = useState<boolean>(false);
@@ -48,6 +53,19 @@ export default function ProductsPage() {
   const [isSearchingVisual, setIsSearchingVisual] = useState<boolean>(false);
   const [visualSearchError, setVisualSearchError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  // Admin Product Creation modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+  const [newProductName, setNewProductName] = useState<string>("");
+  const [newProductDescription, setNewProductDescription] = useState<string>("");
+  const [newProductImageUrl, setNewProductImageUrl] = useState<string>("");
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [isCreatingProduct, setIsCreatingProduct] = useState<boolean>(false);
+  const [createProductError, setCreateProductError] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
+  const [uploadImageError, setUploadImageError] = useState<string | null>(null);
+
+  const isAdmin = user?.role === "Admin";
 
   // Fetch categories
   useEffect(() => {
@@ -113,6 +131,80 @@ export default function ProductsPage() {
 
     return () => clearTimeout(timer);
   }, [loadProducts]);
+
+  // Handle Admin Product Creation
+  const handleCreateProductSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!token) {
+      setCreateProductError("You must be logged in as Admin to create products.");
+      return;
+    }
+    if (!newProductName.trim()) {
+      setCreateProductError("Product name is required.");
+      return;
+    }
+
+    setIsCreatingProduct(true);
+    setCreateProductError(null);
+
+    try {
+      const created = await apiCreateProduct(
+        {
+          name: newProductName.trim(),
+          description: newProductDescription.trim() || null,
+          image_url: newProductImageUrl.trim() || null,
+          category_ids: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
+        },
+        token
+      );
+
+      // Reset form
+      setNewProductName("");
+      setNewProductDescription("");
+      setNewProductImageUrl("");
+      setSelectedCategoryIds([]);
+      setIsCreateModalOpen(false);
+
+      // Show success notification and reload product registry
+      setSuccessBanner(`Product "${created.name}" created successfully.`);
+      setTimeout(() => setSuccessBanner(null), 5000);
+      await loadProducts();
+    } catch (err) {
+      setCreateProductError(
+        err instanceof Error ? err.message : "Failed to create product"
+      );
+    } finally {
+      setIsCreatingProduct(false);
+    }
+  };
+
+  const toggleCategorySelection = (categoryId: string) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
+
+  // Handle direct image file upload for product creation
+  const handleDirectImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !token) return;
+
+    setIsUploadingImage(true);
+    setUploadImageError(null);
+
+    try {
+      const res = await apiUploadProductImage(file, token);
+      setNewProductImageUrl(res.image_url);
+    } catch (err) {
+      setUploadImageError(
+        err instanceof Error ? err.message : "Failed to upload image"
+      );
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   // Handle visual search simulation / upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -218,6 +310,17 @@ export default function ProductsPage() {
 
           {/* Right Action Tools */}
           <div className="flex items-center gap-3">
+            {/* Admin Quick Action */}
+            {isAdmin && (
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="atelier-btn atelier-btn-primary !py-1.5 !px-3 text-xs flex items-center gap-1.5 font-mono shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">CREATE PRODUCT</span>
+              </button>
+            )}
+
             {/* Visual Search trigger button */}
             <button
               onClick={() => setIsVisualSearchOpen(true)}
@@ -287,6 +390,22 @@ export default function ProductsPage() {
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 flex flex-col">
+        {/* Success Banner */}
+        {successBanner && (
+          <div className="mb-6 p-4 rounded border border-[var(--color-terminal-green)]/40 bg-[var(--color-terminal-green)]/10 text-xs font-mono text-[var(--color-terminal-green)] flex items-center justify-between animate-fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{successBanner}</span>
+            </div>
+            <button
+              onClick={() => setSuccessBanner(null)}
+              className="text-[var(--color-ink-dim)] hover:text-[var(--color-ink)] ml-4"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Hero Banner Section */}
         <section className="mb-8">
           <div className="atelier-plate relative p-6 sm:p-8 rounded-lg overflow-hidden border border-[var(--color-rule)] bg-[var(--color-paper-sub)]">
@@ -306,19 +425,31 @@ export default function ProductsPage() {
                 </p>
               </div>
 
-              {/* Metrics Badge */}
-              <div className="flex items-center gap-4 bg-[var(--color-paper-card)] p-3 rounded border border-[var(--color-rule)] font-mono text-xs">
-                <div>
-                  <div className="text-[10px] text-[var(--color-ink-dim)] uppercase">Products Indexed</div>
-                  <div className="text-base font-bold text-[var(--color-terminal-cyan)]">
-                    {products.length} Units
+              {/* Action / Metrics Badge */}
+              <div className="flex flex-wrap items-center gap-4">
+                {isAdmin && (
+                  <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="atelier-btn atelier-btn-primary !py-2.5 !px-4 text-xs font-mono flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>NEW PRODUCT ENCLAVE</span>
+                  </button>
+                )}
+
+                <div className="flex items-center gap-4 bg-[var(--color-paper-card)] p-3 rounded border border-[var(--color-rule)] font-mono text-xs">
+                  <div>
+                    <div className="text-[10px] text-[var(--color-ink-dim)] uppercase">Products Indexed</div>
+                    <div className="text-base font-bold text-[var(--color-terminal-cyan)]">
+                      {products.length} Units
+                    </div>
                   </div>
-                </div>
-                <div className="h-8 w-px bg-[var(--color-rule)]" />
-                <div>
-                  <div className="text-[10px] text-[var(--color-ink-dim)] uppercase">Categories</div>
-                  <div className="text-base font-bold text-[var(--color-atelier-brass)]">
-                    {categories.length} Nodes
+                  <div className="h-8 w-px bg-[var(--color-rule)]" />
+                  <div>
+                    <div className="text-[10px] text-[var(--color-ink-dim)] uppercase">Categories</div>
+                    <div className="text-base font-bold text-[var(--color-atelier-brass)]">
+                      {categories.length} Nodes
+                    </div>
                   </div>
                 </div>
               </div>
@@ -349,7 +480,7 @@ export default function ProductsPage() {
               )}
             </div>
 
-            {/* Visual Search shortcut pill */}
+            {/* Action Tools */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsVisualSearchOpen(true)}
@@ -358,6 +489,17 @@ export default function ProductsPage() {
                 <Camera className="w-3.5 h-3.5 text-[var(--color-terminal-cyan)] group-hover:scale-110 transition-transform" />
                 <span>Camera Search</span>
               </button>
+
+              {isAdmin && (
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="px-3 py-2.5 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] hover:border-[var(--color-atelier-brass)] text-xs font-mono flex items-center gap-1.5 text-[var(--color-atelier-brass)] transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Add Product</span>
+                </button>
+              )}
+
               <button
                 onClick={loadProducts}
                 className="p-2.5 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] hover:border-[var(--color-rule-active)] text-[var(--color-ink-dim)] hover:text-[var(--color-ink)] transition-colors"
@@ -443,12 +585,22 @@ export default function ProductsPage() {
             <p className="text-xs text-[var(--color-ink-muted)] font-mono max-w-sm mb-6">
               No items match your active filters or search terms. Try clearing your query or category selection.
             </p>
-            <button
-              onClick={handleResetFilters}
-              className="atelier-btn atelier-btn-primary !py-2 !px-4 text-xs font-mono"
-            >
-              Reset Filters
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleResetFilters}
+                className="atelier-btn atelier-btn-secondary !py-2 !px-4 text-xs font-mono"
+              >
+                Reset Filters
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="atelier-btn atelier-btn-primary !py-2 !px-4 text-xs font-mono"
+                >
+                  Create New Product
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -520,6 +672,205 @@ export default function ProductsPage() {
           </div>
         )}
       </main>
+
+      {/* Admin Create Product Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="atelier-plate relative w-full max-w-xl bg-[var(--color-paper-card)] border border-[var(--color-atelier-brass)] rounded-lg shadow-2xl p-6 overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-[var(--color-rule)]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-atelier-brass)] text-[var(--color-atelier-brass)]">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-fraunces font-bold text-lg text-[var(--color-ink)]">
+                    Create New Product
+                  </h3>
+                  <p className="font-mono text-[10px] text-[var(--color-ink-muted)]">
+                    ADMIN PRIVILEGE // POST /products
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="p-1.5 text-[var(--color-ink-dim)] hover:text-[var(--color-ink)] rounded hover:bg-[var(--color-paper-sub)] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Error Banner */}
+            {createProductError && (
+              <div className="mb-4 p-3 bg-[var(--color-restricted-red)]/10 border border-[var(--color-restricted-red)]/40 text-[var(--color-restricted-red)] text-xs font-mono rounded flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{createProductError}</span>
+              </div>
+            )}
+
+            {/* Creation Form */}
+            <form onSubmit={handleCreateProductSubmit} className="space-y-4 flex-1 overflow-y-auto pr-1">
+              {/* Product Name */}
+              <div>
+                <label className="block text-xs font-mono text-[var(--color-ink)] mb-1.5">
+                  <span>Product Name</span> <span className="text-[var(--color-atelier-brass)]">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g., Quantum Edge Compute Enclave X9"
+                  value={newProductName}
+                  onChange={(e) => setNewProductName(e.target.value)}
+                  className="w-full bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"
+                  autoFocus
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-mono text-[var(--color-ink)] mb-1.5">
+                  <span>Description</span>
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Detailed architecture summary, specifications, and hardware integration features..."
+                  value={newProductDescription}
+                  onChange={(e) => setNewProductDescription(e.target.value)}
+                  className="w-full bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors resize-none"
+                />
+              </div>
+
+              {/* Image Upload & URL */}
+              <div>
+                <label className="block text-xs font-mono text-[var(--color-ink)] mb-1.5 flex items-center justify-between">
+                  <span>Product Image</span>
+                  <span className="text-[10px] text-[var(--color-ink-dim)]">Direct Upload or CDN URL</span>
+                </label>
+
+                {uploadImageError && (
+                  <div className="mb-2 p-2 bg-[var(--color-restricted-red)]/10 border border-[var(--color-restricted-red)]/40 text-[var(--color-restricted-red)] text-[11px] font-mono rounded">
+                    {uploadImageError}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {/* File Upload Box */}
+                  <label
+                    htmlFor="product-file-upload"
+                    className="border border-dashed border-[var(--color-rule)] hover:border-[var(--color-atelier-brass)] rounded p-3 flex items-center justify-between cursor-pointer transition-colors bg-[var(--color-paper-terminal)] group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {isUploadingImage ? (
+                        <RefreshCw className="w-4 h-4 text-[var(--color-atelier-brass)] animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4 text-[var(--color-atelier-brass)] group-hover:scale-110 transition-transform" />
+                      )}
+                      <div className="text-left font-mono text-xs">
+                        <span className="text-[var(--color-ink)] font-medium">
+                          {isUploadingImage ? "Uploading image file..." : "Upload Image File from Device"}
+                        </span>
+                        <span className="block text-[10px] text-[var(--color-ink-dim)]">
+                          JPG, PNG, WEBP, SVG
+                        </span>
+                      </div>
+                    </div>
+                    {newProductImageUrl && (
+                      <span className="text-[10px] font-mono text-[var(--color-terminal-green)] px-2 py-0.5 rounded bg-[var(--color-terminal-green)]/10 border border-[var(--color-terminal-green)]/30">
+                        Attached
+                      </span>
+                    )}
+                    <input
+                      id="product-file-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleDirectImageUpload}
+                      disabled={isUploadingImage}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {/* Image URL Input & Preview */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Or paste image URL (e.g. https://...)"
+                      value={newProductImageUrl}
+                      onChange={(e) => setNewProductImageUrl(e.target.value)}
+                      className="flex-1 bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"
+                    />
+                    {newProductImageUrl && (
+                      <div className="w-9 h-9 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] overflow-hidden shrink-0">
+                        <img
+                          src={newProductImageUrl}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Categories Association */}
+              {categories.length > 0 && (
+                <div>
+                  <label className="block text-xs font-mono text-[var(--color-ink)] mb-1.5">
+                    <span>Assign Categories</span>
+                  </label>
+                  <div className="flex flex-wrap gap-1.5 p-2 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] max-h-32 overflow-y-auto">
+                    {categories.map((cat) => {
+                      const isSelected = selectedCategoryIds.includes(cat.category_id);
+                      return (
+                        <button
+                          key={cat.category_id}
+                          type="button"
+                          onClick={() => toggleCategorySelection(cat.category_id)}
+                          className={`px-2.5 py-1 rounded text-[11px] font-mono transition-colors border ${
+                            isSelected
+                              ? "bg-[var(--color-atelier-brass)] text-[var(--color-paper)] border-[var(--color-atelier-brass)] font-bold"
+                              : "bg-[var(--color-paper-sub)] text-[var(--color-ink-muted)] border-[var(--color-rule)] hover:border-[var(--color-rule-active)]"
+                          }`}
+                        >
+                          {cat.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="pt-4 border-t border-[var(--color-rule)] flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  disabled={isCreatingProduct}
+                  className="atelier-btn atelier-btn-ghost !py-2 !px-4 text-xs font-mono"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingProduct}
+                  className="atelier-btn atelier-btn-primary !py-2 !px-5 text-xs font-mono flex items-center gap-2"
+                >
+                  {isCreatingProduct ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Creating Product...</span>
+                    </>
+                  ) : (
+                    <span>Register Product →</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Visual Search Modal (CLIP 512-dim Image Matching) */}
       {isVisualSearchOpen && (

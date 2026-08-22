@@ -408,3 +408,59 @@ export async function apiGetMyCart(token: string): Promise<CartRead> {
   }
   return res.json();
 }
+
+export interface ProductCreatePayload {
+  name: string;
+  description?: string | null;
+  image_url?: string | null;
+  category_ids?: string[];
+}
+
+export async function apiCreateProduct(
+  payload: ProductCreatePayload,
+  token: string
+): Promise<ProductRead> {
+  const res = await fetch(`${BACKEND_URL}/products`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to create product: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export interface ImageUploadResponse {
+  image_url: string;
+  file_name: string;
+}
+
+export async function apiUploadProductImage(
+  file: File,
+  token: string
+): Promise<ImageUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${BACKEND_URL}/products/upload-image`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to upload image: ${res.status}`);
+  }
+
+  return res.json();
+}
