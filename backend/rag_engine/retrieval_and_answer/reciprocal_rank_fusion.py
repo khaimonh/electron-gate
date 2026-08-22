@@ -7,11 +7,11 @@ def reciprocal_rank_fusion(chunk_lists, k=60, verbose=False):
     chunk_id_map = {}
     chunk_counter = 1
 
-    for query_idx, chunks in enumerate(chunk_lists, 1):
+    for query_idx, chunks in enumerate(chunk_lists or [], 1):
         if verbose:
             print(f"Processing Query {query_idx} results:")
 
-        for position, chunk in enumerate(chunks, 1):
+        for position, chunk in enumerate(chunks or [], 1):
             chunk_content = chunk.page_content
 
             if chunk_content not in chunk_id_map:
@@ -31,6 +31,5 @@ def reciprocal_rank_fusion(chunk_lists, k=60, verbose=False):
         key=lambda x: x[1],
         reverse=True,
     )
-
 
 

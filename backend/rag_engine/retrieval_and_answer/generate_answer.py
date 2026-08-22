@@ -3,6 +3,7 @@ from langchain_core.messages import HumanMessage
 
 
 def generate_final_answer(chunks, query: str, llm):
+    chunks = chunks or []
     prompt_text = f"""Based on the following documents, answer this question: {query}
 
 CONTENT TO ANALYZE:
